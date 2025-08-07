@@ -10,7 +10,7 @@ const MAX_ENTRY_AGE = {
 };
 
 const MAX_RENEWAL_AGE = {
-    health_scl: 74, bhn: 85, accident: 64, hospital_support: 59
+    health_scl: 74, bhn: 85, accident: 65, hospital_support: 59
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -87,7 +87,7 @@ function initPerson(container, personId, isSupp = false) {
         const handleMainCheckboxChange = () => {
             const isChecked = mainCheckbox.checked && !mainCheckbox.disabled;
             programSelect.disabled = !isChecked;
-            scopeSelect.disabled = !isChecked;
+            scopeSelect.disabled = !isChecked; // Đảm bảo scopeSelect luôn kích hoạt khi checkbox được tích
             const options = sclSection.querySelector('.product-options');
             options.classList.toggle('hidden', !isChecked);
             if (!isChecked) {
@@ -103,7 +103,6 @@ function initPerson(container, personId, isSupp = false) {
         mainCheckbox.addEventListener('change', handleMainCheckboxChange);
     }
 
-    // Thêm sự kiện cho các checkbox sản phẩm bổ trợ khác
     ['bhn', 'accident', 'hospital-support'].forEach(product => {
         const section = suppProductsContainer.querySelector(`.${product}-section`);
         if (section) {
@@ -145,6 +144,26 @@ function initSummaryModal() {
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
     });
+
+    // Xử lý input target-age-input
+    const targetAgeInput = document.getElementById('target-age-input');
+    const mainPersonContainer = document.getElementById('main-person-container');
+    const mainPersonInfo = getCustomerInfo(mainPersonContainer, true);
+    const mainProduct = mainPersonInfo.mainProduct;
+
+    if (mainProduct === 'TRON_TAM_AN') {
+        targetAgeInput.value = mainPersonInfo.age + 10;
+        targetAgeInput.disabled = true;
+    } else if (mainProduct === 'AN_BINH_UU_VIET') {
+        const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
+        targetAgeInput.value = mainPersonInfo.age + term;
+        targetAgeInput.disabled = true;
+    } else if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
+        targetAgeInput.disabled = false;
+        targetAgeInput.min = mainPersonInfo.age + 30;
+    } else {
+        targetAgeInput.disabled = false;
+    }
 }
 
 function initDateFormatter(input) {
@@ -326,12 +345,15 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
         if (finalCondition) {
             section.classList.remove('hidden');
             checkbox.disabled = false;
-            // Hiển thị options nếu checkbox được tích và không bị vô hiệu hóa
             options.classList.toggle('hidden', !checkbox.checked || checkbox.disabled);
             if (sectionId === 'health-scl' && mainProduct === 'TRON_TAM_AN') {
                 checkbox.checked = true;
                 checkbox.disabled = true;
                 options.classList.remove('hidden');
+                const programSelect = section.querySelector('.health-scl-program');
+                const scopeSelect = section.querySelector('.health-scl-scope');
+                if (programSelect) programSelect.disabled = false;
+                if (scopeSelect) scopeSelect.disabled = false; // Đảm bảo scopeSelect được kích hoạt
             }
         } else {
             section.classList.add('hidden');
@@ -404,14 +426,15 @@ function renderMainProductOptions(customer) {
         if (age <= 55) termOptions += '<option value=\"15\">15 năm</option>';
         if (age <= 60) termOptions += '<option value=\"10\">10 năm</option>';
         if (age <= 65) termOptions += '<option value=\"5\">5 năm</option>';
-        optionsHtml += `<div><label for=\"abuv-term\" class=\"font-medium text-gray-700 block mb-1\">Thời hạn đóng phí</label><select id=\"abuv-term\" class=\"form-select\">${termOptions || '<option>Không có kỳ hạn phù hợp</option>'}</select><p class=\"text-sm text-gray-500 mt-1\">Thời gian bảo vệ bằng thời gian đóng phí.</p></div>`;
+        optionsHtml += `<div><label for=\"abuv-term\" class=\"font-medium text-gray-700 block mb-1\">Thời hạn đóng phí</label><select id=\"abuv-term\" class=\"form-select\">${termOptions || '<option>Không có kỳ hạn phù hợp</option>'}</select><p class=\"text-sm text-gray-500 mt-1\">Thời gian bảo vệ bằng thời hạn đóng phí.</p></div>`;
     } else if (['KHOE_BINH_AN', 'VUNG_TUONG_LAI', 'PUL_TRON_DOI', 'PUL_15_NAM', 'PUL_5_NAM'].includes(mainProduct)) {
         optionsHtml = `<div><label for=\"main-stbh\" class=\"font-medium text-gray-700 block mb-1\">Số tiền bảo hiểm (STBH)</label><input type=\"text\" id=\"main-stbh\" class=\"form-input\" value=\"${currentStbh}\" placeholder=\"VD: 1.000.000.000\"></div>`;
         if (['KHOE_BINH_AN', 'VUNG_TUONG_LAI'].includes(mainProduct)) {
             optionsHtml += `<div><label for=\"main-premium-input\" class=\"font-medium text-gray-700 block mb-1\">Phí sản phẩm chính</label><input type=\"text\" id=\"main-premium-input\" class=\"form-input\" value=\"${currentPremium}\" placeholder=\"Nhập phí\"><div id=\"mul-fee-range\" class=\"text-sm text-gray-500 mt-1\"></div></div>`;
         }
-        if (['PUL_TRON_DOI', 'PUL_15_NAM', 'PUL_5_NAM', 'KHOE_BINH_AN', 'VUNG_TUONG_LAI'].includes(mainProduct)) {
-            optionsHtml += `<div><label for=\"payment-term\" class=\"font-medium text-gray-700 block mb-1\">Thời gian đóng phí (năm)</label><input type=\"number\" id=\"payment-term\" class=\"form-input\" placeholder=\"VD: 20\"></div>`;
+        if (['PUL_TRON_DOI', 'PUL_15_NAM', 'PUL_5_NAM'].includes(mainProduct)) {
+            const minTerm = mainProduct === 'PUL_5_NAM' ? 5 : mainProduct === 'PUL_15_NAM' ? 15 : 1;
+            optionsHtml += `<div><label for=\"payment-term\" class=\"font-medium text-gray-700 block mb-1\">Thời gian đóng phí (năm)</label><input type=\"number\" id=\"payment-term\" class=\"form-input\" placeholder=\"VD: 20\" min=\"${minTerm}\"></div>`;
         }
     }
     
@@ -437,27 +460,35 @@ function calculateMainPremium(customer, ageOverride = null) {
         const genderKey = gender === 'Nữ' ? 'nu' : 'nam';
 
         if (mainProduct.startsWith('PUL')) {
-            const pulRate = product_data.pul_rates[mainProduct]?.find(r => r.age === ageToUse)?.[genderKey];
-            if (pulRate === undefined) throw new Error(`Không có biểu phí PUL cho tuổi ${ageToUse}.`);
+            const paymentTermInput = document.getElementById('payment-term');
+            const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
+            if (mainProduct === 'PUL_5_NAM' && paymentTerm < 5) throw new Error('Thời hạn đóng phí cho PUL 5 Năm phải lớn hơn hoặc bằng 5 năm.');
+            if (mainProduct === 'PUL_15_NAM' && paymentTerm < 15) throw new Error('Thời hạn đóng phí cho PUL 15 Năm phải lớn hơn hoặc bằng 15 năm.');
+            
+            const pulRate = product_data.pul_rates[mainProduct]?.find(r => r.age === customer.age)?.[genderKey] || 0; // Dùng tuổi ban đầu
+            if (pulRate === 0 && !ageOverride) throw new Error(`Không có biểu phí PUL cho tuổi ${customer.age}.`);
             rate = pulRate;
         } else if (mainProduct === 'AN_BINH_UU_VIET') {
             const term = document.getElementById('abuv-term')?.value;
             if (!term) return 0;
-            const abuvRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === ageToUse)?.[genderKey];
-            if (abuvRate === undefined) throw new Error(`Không có biểu phí An Bình Ưu Việt cho tuổi ${ageToUse}, kỳ hạn ${term} năm.`);
-            if (abuvRate === null) throw new Error(`Không áp dụng phí cho ${gender} ở tuổi ${ageToUse} cho sản phẩm này.`);
+            const abuvRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === customer.age)?.[genderKey] || 0; // Dùng tuổi ban đầu
+            if (abuvRate === 0 && !ageOverride) throw new Error(`Không có biểu phí An Bình Ưu Việt cho tuổi ${customer.age}, kỳ hạn ${term} năm.`);
             rate = abuvRate;
         } else if (mainProduct === 'TRON_TAM_AN') {
             stbh = 100000000;
             const term = '10';
-            const ttaRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === ageToUse)?.[genderKey];
-            if (ttaRate === undefined) throw new Error(`Không có biểu phí Trọn tâm an cho tuổi ${ageToUse}.`);
-            if (ttaRate === null) throw new Error(`Không áp dụng phí Trọn tâm an cho ${gender} ở tuổi ${ageToUse}.`);
+            const ttaRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === customer.age)?.[genderKey] || 0; // Dùng tuổi ban đầu
+            if (ttaRate === 0 && !ageOverride) throw new Error(`Không có biểu phí Trọn Tâm An cho tuổi ${customer.age}.`);
             rate = ttaRate;
         }
         premium = (stbh / 1000) * rate;
     } else if (['KHOE_BINH_AN', 'VUNG_TUONG_LAI'].includes(mainProduct)) {
-        if (ageOverride) { // For projections, assume fee is fixed from year 1
+        const paymentTermInput = document.getElementById('payment-term');
+        const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
+        if (mainProduct === 'PUL_5_NAM' && paymentTerm < 5) throw new Error('Thời hạn đóng phí cho PUL 5 Năm phải lớn hơn hoặc bằng 5 năm.');
+        if (mainProduct === 'PUL_15_NAM' && paymentTerm < 15) throw new Error('Thời hạn đóng phí cho PUL 15 Năm phải lớn hơn hoặc bằng 15 năm.');
+        
+        if (ageOverride) {
             premium = parseFormattedNumber(document.getElementById('main-premium-input')?.value || '0');
         } else {
             const stbh = parseFormattedNumber(document.getElementById('main-stbh')?.value || '0');
@@ -526,8 +557,7 @@ function calculateBhnPremium(customer, container, ageOverride = null) {
         return 0;
     }
 
-    const rate = product_data.bhn_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.[gender === 'Nữ' ? 'nu' : 'nam'];
-    if (rate === undefined) return 0;
+    const rate = product_data.bhn_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.[gender === 'Nữ' ? 'nu' : 'nam'] || 0;
     const premium = (stbh / 1000) * rate;
     if (!ageOverride) section.querySelector('.fee-display').textContent = `Phí: ${formatCurrency(premium)}`;
     return premium;
@@ -550,8 +580,7 @@ function calculateAccidentPremium(customer, container, ageOverride = null) {
         return 0;
     }
 
-    const rate = product_data.accident_rates[riskGroup];
-    if (rate === undefined) return 0;
+    const rate = product_data.accident_rates[riskGroup] || 0;
     const premium = (stbh / 1000) * rate;
     if (!ageOverride) section.querySelector('.fee-display').textContent = `Phí: ${formatCurrency(premium)}`;
     return premium;
@@ -576,8 +605,7 @@ function calculateHospitalSupportPremium(customer, mainPremium, container, ageOv
     }
     if (stbh > maxSupport || stbh % 100000 !== 0) throw new Error(`Số tiền Hỗ trợ viện phí không hợp lệ.`);
     
-    const rate = product_data.hospital_fee_support_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.rate;
-    if(rate === undefined) return 0;
+    const rate = product_data.hospital_fee_support_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.rate || 0;
     const premium = (stbh / 100) * rate;
     if (!ageOverride) section.querySelector('.fee-display').textContent = `Phí: ${formatCurrency(premium)}`;
     return premium;
@@ -610,6 +638,10 @@ function generateSummaryTable() {
         if (isNaN(targetAge) || targetAge <= mainPersonInfo.age) {
             throw new Error("Vui lòng nhập một độ tuổi mục tiêu hợp lệ, lớn hơn tuổi hiện tại của NĐBH chính.");
         }
+
+        if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainPersonInfo.mainProduct) && targetAge < mainPersonInfo.age + 30) {
+            throw new Error(`Độ tuổi mục tiêu phải lớn hơn hoặc bằng ${mainPersonInfo.age + 30} đối với ${mainPersonInfo.mainProduct}.`);
+        }
         
         let paymentTerm = 999;
         const paymentTermInput = document.getElementById('payment-term');
@@ -625,13 +657,13 @@ function generateSummaryTable() {
 
         let totalMainAcc = 0;
         let totalSuppAcc = 0;
-        const initialMainPremium = calculateMainPremium(mainPersonInfo); 
+        const initialMainPremium = calculateMainPremium(mainPersonInfo); // Phí chính cố định dựa trên tuổi ban đầu
 
         for (let i = 0; (mainPersonInfo.age + i) <= targetAge; i++) {
             const currentAgeMain = mainPersonInfo.age + i;
             const contractYear = i + 1;
             
-            const mainPremiumForYear = (contractYear <= paymentTerm) ? calculateMainPremium(mainPersonInfo, currentAgeMain) : 0;
+            const mainPremiumForYear = (contractYear <= paymentTerm) ? initialMainPremium : 0; // Giữ phí chính cố định
             
             let suppPremiumForYear = 0;
             document.querySelectorAll('.person-container').forEach(pContainer => {

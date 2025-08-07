@@ -285,6 +285,7 @@ function updateMainProductVisibility(customer) {
 function updateSupplementaryProductVisibility(customer, mainPremium, container) {
     const { age } = customer;
     const mainProduct = document.getElementById('main-product').value;
+
     const showOrHide = (sectionId, productKey, condition) => {
         const section = container.querySelector(`.${sectionId}-section`);
         if (!section) {
@@ -301,11 +302,7 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
             if (sectionId === 'health-scl' && mainProduct === 'TRON_TAM_AN') {
                 checkbox.checked = true;
                 checkbox.disabled = true;
-            }
-            if (checkbox.checked) {
-                options.classList.remove('hidden');
-            } else {
-                options.classList.add('hidden');
+                options.classList.remove('hidden'); // Đảm bảo hiển thị options cho TRON_TAM_AN
             }
         } else {
             section.classList.add('hidden');
@@ -333,9 +330,13 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
                     opt.disabled = true;
                 }
             });
+            // Đảm bảo chọn giá trị hợp lệ
+            if (programSelect.options[programSelect.selectedIndex]?.disabled) {
+                programSelect.value = mainPremium >= 5000000 ? 'co_ban' : '';
+            }
         }
     };
-    
+
     const baseCondition = ['PUL_TRON_DOI', 'PUL_15_NAM', 'PUL_5_NAM', 'KHOE_BINH_AN', 'VUNG_TUONG_LAI', 'AN_BINH_UU_VIET', 'TRON_TAM_AN'].includes(mainProduct);
 
     showOrHide('health-scl', 'health_scl', baseCondition);
@@ -348,16 +349,18 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
         if (healthCheckbox) {
             healthCheckbox.checked = true;
             healthCheckbox.disabled = true;
+            const options = container.querySelector('.health-scl-section .product-options');
+            if (options) options.classList.remove('hidden');
         }
         ['bhn', 'accident', 'hospital-support'].forEach(id => {
             const section = container.querySelector(`.${id}-section`);
             if (section) {
                 section.classList.add('hidden');
-                section.querySelector('input[type=\"checkbox\"]').checked = false;
+                section.querySelector('input[type="checkbox"]').checked = false;
             }
         });
     }
-
+}
     container.querySelectorAll('input[type=\"checkbox\"]').forEach(cb => {
         const optionsDiv = cb.closest('.product-section').querySelector('.product-options');
         if (optionsDiv) {

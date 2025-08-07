@@ -291,6 +291,26 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
             checkbox.disabled = true;
         }
     };
+
+        // Giới hạn chương trình dựa trên phí chính
+        if (sectionId === 'health-scl' && finalCondition) {
+            const programSelect = section.querySelector('.health-scl-program');
+            programSelect.querySelectorAll('option').forEach(opt => {
+                if (opt.value === '') return;
+                if (mainProduct === 'TRON_TAM_AN') {
+                    opt.disabled = false; // Cho phép chọn tất cả chương trình
+                } else if (mainPremium >= 15000000) {
+                    opt.disabled = false; // Cho phép tất cả chương trình
+                } else if (mainPremium >= 10000000) {
+                    opt.disabled = !['co_ban', 'nang_cao', 'toan_dien'].includes(opt.value);
+                } else if (mainPremium >= 5000000) {
+                    opt.disabled = !['co_ban', 'nang_cao'].includes(opt.value);
+                } else {
+                    opt.disabled = true;
+                }
+            });
+        }
+    };
     
     const baseCondition = ['PUL_TRON_DOI', 'PUL_15_NAM', 'PUL_5_NAM', 'KHOE_BINH_AN', 'VUNG_TUONG_LAI', 'AN_BINH_UU_VIET', 'TRON_TAM_AN'].includes(mainProduct);
 

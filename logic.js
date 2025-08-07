@@ -26,10 +26,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function attachGlobalListeners() {
     const allInputs = 'input, select';
     document.body.addEventListener('change', (e) => {
-        if (e.target.matches('.health-scl-checkbox')) {
+        const checkboxSelectors = [
+            '.health-scl-checkbox',
+            '.bhn-checkbox',
+            '.accident-checkbox',
+            '.hospital-support-checkbox'
+        ];
+        if (checkboxSelectors.some(selector => e.target.matches(selector))) {
             const section = e.target.closest('.product-section');
             const options = section.querySelector('.product-options');
-            if (e.target.checked) {
+            if (e.target.checked && !e.target.disabled) {
                 options.classList.remove('hidden');
             } else {
                 options.classList.add('hidden');
@@ -79,7 +85,7 @@ function initPerson(container, personId, isSupp = false) {
         };
 
         const handleMainCheckboxChange = () => {
-            const isChecked = mainCheckbox.checked;
+            const isChecked = mainCheckbox.checked && !mainCheckbox.disabled;
             programSelect.disabled = !isChecked;
             scopeSelect.disabled = !isChecked;
             const options = sclSection.querySelector('.product-options');
@@ -96,6 +102,21 @@ function initPerson(container, personId, isSupp = false) {
         programSelect.addEventListener('change', handleProgramChange);
         mainCheckbox.addEventListener('change', handleMainCheckboxChange);
     }
+
+    // Thêm sự kiện cho các checkbox sản phẩm bổ trợ khác
+    ['bhn', 'accident', 'hospital-support'].forEach(product => {
+        const section = suppProductsContainer.querySelector(`.${product}-section`);
+        if (section) {
+            const checkbox = section.querySelector(`.${product}-checkbox`);
+            const handleCheckboxChange = () => {
+                const isChecked = checkbox.checked && !checkbox.disabled;
+                const options = section.querySelector('.product-options');
+                options.classList.toggle('hidden', !isChecked);
+                calculateAll();
+            };
+            checkbox.addEventListener('change', handleCheckboxChange);
+        }
+    });
 }
 
 function initMainProductLogic() {
@@ -305,6 +326,8 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
         if (finalCondition) {
             section.classList.remove('hidden');
             checkbox.disabled = false;
+            // Hiển thị options nếu checkbox được tích và không bị vô hiệu hóa
+            options.classList.toggle('hidden', !checkbox.checked || checkbox.disabled);
             if (sectionId === 'health-scl' && mainProduct === 'TRON_TAM_AN') {
                 checkbox.checked = true;
                 checkbox.disabled = true;
@@ -350,18 +373,12 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
     showOrHide('hospital-support', 'hospital_support', baseCondition);
 
     if (mainProduct === 'TRON_TAM_AN') {
-        const healthCheckbox = container.querySelector('.health-scl-checkbox');
-        if (healthCheckbox) {
-            healthCheckbox.checked = true;
-            healthCheckbox.disabled = true;
-            const options = container.querySelector('.health-scl-section .product-options');
-            if (options) options.classList.remove('hidden');
-        }
         ['bhn', 'accident', 'hospital-support'].forEach(id => {
             const section = container.querySelector(`.${id}-section`);
             if (section) {
                 section.classList.add('hidden');
                 section.querySelector('input[type="checkbox"]').checked = false;
+                section.querySelector('.product-options').classList.add('hidden');
             }
         });
     }

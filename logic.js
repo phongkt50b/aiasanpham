@@ -1,4 +1,5 @@
 import { product_data } from './data.js';
+import html2pdf from 'html2pdf.js'; // Giả sử có tích hợp xuất PDF
 
 let supplementaryInsuredCount = 0;
 let currentMainProductState = { product: null, age: null };
@@ -87,7 +88,7 @@ function initPerson(container, personId, isSupp = false) {
         const handleMainCheckboxChange = () => {
             const isChecked = mainCheckbox.checked && !mainCheckbox.disabled;
             programSelect.disabled = !isChecked;
-            scopeSelect.disabled = !isChecked; // Đảm bảo scopeSelect luôn kích hoạt khi checkbox được tích
+            scopeSelect.disabled = !isChecked;
             const options = sclSection.querySelector('.product-options');
             options.classList.toggle('hidden', !isChecked);
             if (!isChecked) {
@@ -158,11 +159,39 @@ function initSummaryModal() {
         const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
         targetAgeInput.value = mainPersonInfo.age + term;
         targetAgeInput.disabled = true;
-    } else if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
-        targetAgeInput.disabled = false;
-        targetAgeInput.min = mainPersonInfo.age + 30;
     } else {
         targetAgeInput.disabled = false;
+        if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
+            targetAgeInput.min = mainPersonInfo.age + 30;
+        }
+    }
+
+    // Cập nhật target-age-input khi thay đổi ngày sinh hoặc thời hạn đóng phí
+    document.getElementById('main-product').addEventListener('change', updateTargetAge);
+    document.getElementById('dob-main').addEventListener('input', updateTargetAge);
+    document.getElementById('abuv-term')?.addEventListener('change', updateTargetAge);
+}
+
+function updateTargetAge() {
+    const mainPersonContainer = document.getElementById('main-person-container');
+    const mainPersonInfo = getCustomerInfo(mainPersonContainer, true);
+    const mainProduct = mainPersonInfo.mainProduct;
+    const targetAgeInput = document.getElementById('target-age-input');
+
+    if (mainProduct === 'TRON_TAM_AN') {
+        targetAgeInput.value = mainPersonInfo.age + 10;
+        targetAgeInput.disabled = true;
+    } else if (mainProduct === 'AN_BINH_UU_VIET') {
+        const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
+        targetAgeInput.value = mainPersonInfo.age + term;
+        targetAgeInput.disabled = true;
+    } else {
+        targetAgeInput.disabled = false;
+        if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
+            targetAgeInput.min = mainPersonInfo.age + 30;
+        } else {
+            targetAgeInput.min = mainPersonInfo.age + 1;
+        }
     }
 }
 
@@ -225,6 +254,7 @@ function getCustomerInfo(container, isMain = false) {
     const occupationInput = container.querySelector('.occupation-input');
     const ageSpan = container.querySelector('.age-span');
     const riskGroupSpan = container.querySelector('.risk-group-span');
+    const nameInput = container.querySelector('.name-input');
     
     let age = 0;
     const dobStr = dobInput ? dobInput.value : '';
@@ -250,6 +280,7 @@ function getCustomerInfo(container, isMain = false) {
         gender: genderSelect ? genderSelect.value : 'Nam',
         riskGroup,
         container,
+        name: nameInput ? nameInput.value : 'NĐBH Chính'
     };
 
     if (isMain) {
@@ -321,6 +352,17 @@ function updateMainProductVisibility(customer) {
     
     const newProduct = mainProductSelect.value;
     
+    if (newProduct === 'TRON_TAM_AN') {
+        document.getElementById('supplementary-insured-container').classList.add('hidden');
+        document.getElementById('add-supp-insured-btn').classList.add('hidden');
+        // Xóa tất cả NĐBH bổ sung
+        supplementaryInsuredCount = 0;
+        document.getElementById('supplementary-insured-container').innerHTML = '';
+    } else {
+        document.getElementById('supplementary-insured-container').classList.remove('hidden');
+        document.getElementById('add-supp-insured-btn').classList.remove('hidden');
+    }
+
     if (currentMainProductState.product !== newProduct || currentMainProductState.age !== age) {
         renderMainProductOptions(customer);
         currentMainProductState.product = newProduct;
@@ -353,7 +395,7 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
                 const programSelect = section.querySelector('.health-scl-program');
                 const scopeSelect = section.querySelector('.health-scl-scope');
                 if (programSelect) programSelect.disabled = false;
-                if (scopeSelect) scopeSelect.disabled = false; // Đảm bảo scopeSelect được kích hoạt
+                if (scopeSelect) scopeSelect.disabled = false;
             }
         } else {
             section.classList.add('hidden');
@@ -465,19 +507,19 @@ function calculateMainPremium(customer, ageOverride = null) {
             if (mainProduct === 'PUL_5_NAM' && paymentTerm < 5) throw new Error('Thời hạn đóng phí cho PUL 5 Năm phải lớn hơn hoặc bằng 5 năm.');
             if (mainProduct === 'PUL_15_NAM' && paymentTerm < 15) throw new Error('Thời hạn đóng phí cho PUL 15 Năm phải lớn hơn hoặc bằng 15 năm.');
             
-            const pulRate = product_data.pul_rates[mainProduct]?.find(r => r.age === customer.age)?.[genderKey] || 0; // Dùng tuổi ban đầu
+            const pulRate = product_data.pul_rates[mainProduct]?.find(r => r.age === customer.age)?.[genderKey] || 0;
             if (pulRate === 0 && !ageOverride) throw new Error(`Không có biểu phí PUL cho tuổi ${customer.age}.`);
             rate = pulRate;
         } else if (mainProduct === 'AN_BINH_UU_VIET') {
             const term = document.getElementById('abuv-term')?.value;
             if (!term) return 0;
-            const abuvRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === customer.age)?.[genderKey] || 0; // Dùng tuổi ban đầu
+            const abuvRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === customer.age)?.[genderKey] || 0;
             if (abuvRate === 0 && !ageOverride) throw new Error(`Không có biểu phí An Bình Ưu Việt cho tuổi ${customer.age}, kỳ hạn ${term} năm.`);
             rate = abuvRate;
         } else if (mainProduct === 'TRON_TAM_AN') {
             stbh = 100000000;
             const term = '10';
-            const ttaRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === customer.age)?.[genderKey] || 0; // Dùng tuổi ban đầu
+            const ttaRate = product_data.an_binh_uu_viet_rates[term]?.find(r => r.age === customer.age)?.[genderKey] || 0;
             if (ttaRate === 0 && !ageOverride) throw new Error(`Không có biểu phí Trọn Tâm An cho tuổi ${customer.age}.`);
             rate = ttaRate;
         }
@@ -631,7 +673,6 @@ function generateSummaryTable() {
     try {
         const targetAgeInput = document.getElementById('target-age-input');
         const targetAge = parseInt(targetAgeInput.value, 10);
-
         const mainPersonContainer = document.getElementById('main-person-container');
         const mainPersonInfo = getCustomerInfo(mainPersonContainer, true);
 
@@ -653,53 +694,100 @@ function generateSummaryTable() {
             paymentTerm = 10;
         }
 
-        let tableHtml = `<table class=\"w-full text-left border-collapse\"><thead class=\"bg-gray-100\"><tr><th class=\"p-2 border\">Năm HĐ</th><th class=\"p-2 border\">Tuổi NĐBH Chính</th><th class=\"p-2 border\">Phí SP Chính</th><th class=\"p-2 border\">Phí SP Bổ Sung</th><th class=\"p-2 border\">Tổng Phí Năm</th></tr></thead><tbody>`;
+        // Thu thập thông tin tất cả NĐBH bổ sung
+        const suppPersons = [];
+        document.querySelectorAll('.person-container').forEach(pContainer => {
+            if (pContainer.id !== 'main-person-container') {
+                const personInfo = getCustomerInfo(pContainer, false);
+                suppPersons.push(personInfo);
+            }
+        });
+
+        // Tạo tiêu đề bảng
+        let tableHtml = `<table class="w-full text-left border-collapse"><thead class="bg-gray-100"><tr>`;
+        tableHtml += `<th class="p-2 border">Năm HĐ</th>`;
+        tableHtml += `<th class="p-2 border">Tuổi NĐBH Chính<br>(${mainPersonInfo.name})</th>`;
+        tableHtml += `<th class="p-2 border">Phí SP Chính<br>(${mainPersonInfo.name})</th>`;
+        tableHtml += `<th class="p-2 border">Phí SP Bổ Sung<br>(${mainPersonInfo.name})</th>`;
+        suppPersons.forEach(person => {
+            tableHtml += `<th class="p-2 border">Phí SP Bổ Sung<br>(${person.name})</th>`;
+        });
+        tableHtml += `<th class="p-2 border">Tổng Phí Năm</th>`;
+        tableHtml += `</tr></thead><tbody>`;
 
         let totalMainAcc = 0;
-        let totalSuppAcc = 0;
-        const initialMainPremium = calculateMainPremium(mainPersonInfo); // Phí chính cố định dựa trên tuổi ban đầu
+        let totalSuppAccMain = 0;
+        let totalSuppAccAll = 0;
+        const initialMainPremium = calculateMainPremium(mainPersonInfo);
 
         for (let i = 0; (mainPersonInfo.age + i) <= targetAge; i++) {
             const currentAgeMain = mainPersonInfo.age + i;
             const contractYear = i + 1;
             
-            const mainPremiumForYear = (contractYear <= paymentTerm) ? initialMainPremium : 0; // Giữ phí chính cố định
-            
-            let suppPremiumForYear = 0;
-            document.querySelectorAll('.person-container').forEach(pContainer => {
-                const isMain = pContainer.id === 'main-person-container';
-                const initialPersonInfo = getCustomerInfo(pContainer, isMain);
-                const currentPersonAge = initialPersonInfo.age + i;
-                const currentPersonInfo = { ...initialPersonInfo, age: currentPersonAge };
-                
-                const suppProductsContainer = isMain ? document.querySelector('#main-supp-container .supplementary-products-container') : pContainer.querySelector('.supplementary-products-container');
+            const mainPremiumForYear = (contractYear <= paymentTerm) ? initialMainPremium : 0;
+            totalMainAcc += mainPremiumForYear;
 
+            let suppPremiumMain = 0;
+            const mainSuppContainer = document.querySelector('#main-supp-container .supplementary-products-container');
+            if (mainSuppContainer) {
+                suppPremiumMain += calculateHealthSclPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
+                suppPremiumMain += calculateBhnPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
+                suppPremiumMain += calculateAccidentPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
+                suppPremiumMain += calculateHospitalSupportPremium({ ...mainPersonInfo, age: currentAgeMain }, initialMainPremium, mainSuppContainer, currentAgeMain);
+            }
+            totalSuppAccMain += suppPremiumMain;
+
+            const suppPremiums = suppPersons.map(person => {
+                const currentPersonAge = person.age + i;
+                const suppProductsContainer = person.container.querySelector('.supplementary-products-container');
+                let suppPremium = 0;
                 if (suppProductsContainer) {
-                    suppPremiumForYear += calculateHealthSclPremium(currentPersonInfo, suppProductsContainer, currentPersonAge);
-                    suppPremiumForYear += calculateBhnPremium(currentPersonInfo, suppProductsContainer, currentPersonAge);
-                    suppPremiumForYear += calculateAccidentPremium(currentPersonInfo, suppProductsContainer, currentPersonAge);
-                    suppPremiumForYear += calculateHospitalSupportPremium(currentPersonInfo, initialMainPremium, suppProductsContainer, currentPersonAge);
+                    suppPremium += calculateHealthSclPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
+                    suppPremium += calculateBhnPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
+                    suppPremium += calculateAccidentPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
+                    suppPremium += calculateHospitalSupportPremium({ ...person, age: currentPersonAge }, initialMainPremium, suppProductsContainer, currentPersonAge);
                 }
+                totalSuppAccAll += suppPremium;
+                return suppPremium;
             });
 
-            totalMainAcc += mainPremiumForYear;
-            totalSuppAcc += suppPremiumForYear;
-
             tableHtml += `<tr>
-                <td class=\"p-2 border text-center\">${contractYear}</td>
-                <td class=\"p-2 border text-center\">${currentAgeMain}</td>
-                <td class=\"p-2 border text-right\">${formatCurrency(mainPremiumForYear)}</td>
-                <td class=\"p-2 border text-right\">${formatCurrency(suppPremiumForYear)}</td>
-                <td class=\"p-2 border text-right font-semibold\">${formatCurrency(mainPremiumForYear + suppPremiumForYear)}</td>
-            </tr>`;
+                <td class="p-2 border text-center">${contractYear}</td>
+                <td class="p-2 border text-center">${currentAgeMain}</td>
+                <td class="p-2 border text-right">${formatCurrency(mainPremiumForYear)}</td>
+                <td class="p-2 border text-right">${formatCurrency(suppPremiumMain)}</td>`;
+            suppPremiums.forEach(suppPremium => {
+                tableHtml += `<td class="p-2 border text-right">${formatCurrency(suppPremium)}</td>`;
+            });
+            tableHtml += `<td class="p-2 border text-right font-semibold">${formatCurrency(mainPremiumForYear + suppPremiumMain + suppPremiums.reduce((sum, p) => sum + p, 0))}</td>`;
+            tableHtml += `</tr>`;
         }
         
-        tableHtml += `<tr class=\"bg-gray-200 font-bold\"><td class=\"p-2 border\" colspan=\"2\">Tổng cộng</td><td class=\"p-2 border text-right\">${formatCurrency(totalMainAcc)}</td><td class=\"p-2 border text-right\">${formatCurrency(totalSuppAcc)}</td><td class=\"p-2 border text-right\">${formatCurrency(totalMainAcc + totalSuppAcc)}</td></tr>`;
-        tableHtml += '</tbody></table>';
+        tableHtml += `<tr class="bg-gray-200 font-bold"><td class="p-2 border" colspan="2">Tổng cộng</td>`;
+        tableHtml += `<td class="p-2 border text-right">${formatCurrency(totalMainAcc)}</td>`;
+        tableHtml += `<td class="p-2 border text-right">${formatCurrency(totalSuppAccMain)}</td>`;
+        suppPersons.forEach((_, index) => {
+            const totalSupp = suppPersons[index].container.querySelector('.supplementary-products-container') ? 
+                Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
+                    const currentPersonAge = suppPersons[index].age + i;
+                    let suppPremium = 0;
+                    const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
+                    if (suppContainer) {
+                        suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                        suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                        suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                        suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, currentPersonAge);
+                    }
+                    return sum + suppPremium;
+                }, 0) : 0;
+            tableHtml += `<td class="p-2 border text-right">${formatCurrency(totalSupp)}</td>`;
+        });
+        tableHtml += `<td class="p-2 border text-right">${formatCurrency(totalMainAcc + totalSuppAccMain + totalSuppAccAll)}</td>`;
+        tableHtml += `</tr></tbody></table>`;
         container.innerHTML = tableHtml;
 
     } catch (e) {
-        container.innerHTML = `<p class=\"text-red-600 font-semibold text-center\">${e.message}</p>`;
+        container.innerHTML = `<p class="text-red-600 font-semibold text-center">${e.message}</p>`;
     } finally {
         modal.classList.remove('hidden');
     }
@@ -734,103 +822,104 @@ function clearError() {
 
 function generateSupplementaryPersonHtml(personId, count) {
     return `
-        <button class=\"w-full text-right text-sm text-red-600 font-semibold\" onclick=\"this.closest('.person-container').remove(); calculateAll();\">Xóa NĐBH này</button>
-        <h3 class=\"text-lg font-bold text-gray-700 mb-2 border-t pt-4\">NĐBH Bổ Sung ${count}</h3>
-        <div class=\"grid grid-cols-1 md:grid-cols-2 gap-4\">
+        <button class="w-full text-right text-sm text-red-600 font-semibold" onclick="this.closest('.person-container').remove(); calculateAll();">Xóa NĐBH này</button>
+        <h3 class="text-lg font-bold text-gray-700 mb-2 border-t pt-4">NĐBH Bổ Sung ${count}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label for=\"name-${personId}\" class=\"font-medium text-gray-700 block mb-1\">Họ và Tên</label>
-                <input type=\"text\" id=\"name-${personId}\" class=\"form-input name-input\" placeholder=\"Trần Thị B\">
+                <label for="name-${personId}" class="font-medium text-gray-700 block mb-1">Họ và Tên</label>
+                <input type="text" id="name-${personId}" class="form-input name-input" placeholder="Trần Thị B">
             </div>
             <div>
-                <label for=\"dob-${personId}\" class=\"font-medium text-gray-700 block mb-1\">Ngày sinh</label>
-                <input type=\"text\" id=\"dob-${personId}\" class=\"form-input dob-input\" placeholder=\"DD/MM/YYYY\">
+                <label for="dob-${personId}" class="font-medium text-gray-700 block mb-1">Ngày sinh</label>
+                <input type="text" id="dob-${personId}" class="form-input dob-input" placeholder="DD/MM/YYYY">
             </div>
             <div>
-                <label for=\"gender-${personId}\" class=\"font-medium text-gray-700 block mb-1\">Giới tính</label>
-                <select id=\"gender-${personId}\" class=\"form-select gender-select\">
-                    <option value=\"Nam\">Nam</option>
-                    <option value=\"Nữ\">Nữ</option>
+                <label for="gender-${personId}" class="font-medium text-gray-700 block mb-1">Giới tính</label>
+                <select id="gender-${personId}" class="form-select gender-select">
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
                 </select>
             </div>
-            <div class=\"flex items-end space-x-4\">
-                <p class=\"text-lg\">Tuổi: <span id=\"age-${personId}\" class=\"font-bold text-aia-red age-span\">0</span></p>
+            <div class="flex items-end space-x-4">
+                <p class="text-lg">Tuổi: <span id="age-${personId}" class="font-bold text-aia-red age-span">0</span></p>
             </div>
-            <div class=\"relative\">
-                <label for=\"occupation-input-${personId}\" class=\"font-medium text-gray-700 block mb-1\">Nghề nghiệp</label>
-                <input type=\"text\" id=\"occupation-input-${personId}\" class=\"form-input occupation-input\" placeholder=\"Gõ để tìm nghề nghiệp...\">
-                <div class=\"occupation-autocomplete absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden max-h-60 overflow-y-auto\"></div>
+            <div class="relative">
+                <label for="occupation-input-${personId}" class="font-medium text-gray-700 block mb-1">Nghề nghiệp</label>
+                <input type="text" id="occupation-input-${personId}" class="form-input occupation-input" placeholder="Gõ để tìm nghề nghiệp...">
+                <div class="occupation-autocomplete absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden max-h-60 overflow-y-auto"></div>
             </div>
-            <div class=\"flex items-end space-x-4\">
-                <p class=\"text-lg\">Nhóm nghề: <span id=\"risk-group-${personId}\" class=\"font-bold text-aia-red risk-group-span\">...</span></p>
+            <div class="flex items-end space-x-4">
+                <p class="text-lg">Nhóm nghề: <span id="risk-group-${personId}" class="font-bold text-aia-red risk-group-span">...</span></p>
             </div>
         </div>
-        <div class=\"mt-4\">
-            <h4 class=\"text-md font-semibold text-gray-800 mb-2\">Sản phẩm bổ sung cho người này</h4>
-            <div class=\"supplementary-products-container space-y-6\"></div>
+        <div class="mt-4">
+            <h4 class="text-md font-semibold text-gray-800 mb-2">Sản phẩm bổ sung cho người này</h4>
+            <div class="supplementary-products-container space-y-6"></div>
         </div>
     `;
 }
 
 function generateSupplementaryProductsHtml(personId) {
     return `
-        <div class=\"product-section health-scl-section hidden\">
-            <label class=\"flex items-center space-x-3 cursor-pointer\">
-                <input type=\"checkbox\" class=\"form-checkbox health-scl-checkbox\">
-                <span class=\"text-lg font-medium text-gray-800\">Sức khỏe Bùng Gia Lực</span>
+        <div class="product-section health-scl-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox health-scl-checkbox">
+                <span class="text-lg font-medium text-gray-800">Sức khỏe Bùng Gia Lực</span>
             </label>
-            <div class=\"product-options hidden mt-3 pl-8 space-y-4 border-l-2 border-gray-200\">
-                <div class=\"grid grid-cols-1 sm:grid-cols-2 gap-4\">
+            <div class="product-options hidden mt-3 pl-8 space-y-4 border-l-2 border-gray-200">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label class=\"font-medium text-gray-700 block mb-1\">Quyền lợi chính (Bắt buộc)</label>
-                        <select class=\"form-select health-scl-program\" disabled>
-                            <option value=\"\">-- Chọn chương trình --</option>
-                            <option value=\"co_ban\">Cơ bản</option> <option value=\"nang_cao\">Nâng cao</option> <option value=\"toan_dien\">Toàn diện</option> <option value=\"hoan_hao\">Hoàn hảo</option>
+                        <label class="font-medium text-gray-700 block mb-1">Quyền lợi chính (Bắt buộc)</label>
+                        <select class="form-select health-scl-program" disabled>
+                            <option value="">-- Chọn chương trình --</option>
+                            <option value="co_ban">Cơ bản</option> <option value="nang_cao">Nâng cao</option> <option value="toan_dien">Toàn diện</option> <option value="hoan_hao">Hoàn hảo</option>
                         </select>
                     </div>
                     <div>
-                        <label class=\"font-medium text-gray-700 block mb-1\">Phạm vi địa lý</label>
-                        <select class=\"form-select health-scl-scope\" disabled>
-                            <option value=\"main_vn\">Việt Nam</option> <option value=\"main_global\">Toàn cầu (trừ Hoa Kỳ)</option>
+                        <label class="font-medium text-gray-700 block mb-1">Phạm vi địa lý</label>
+                        <select class="form-select health-scl-scope" disabled>
+                            <option value="main_vn">Việt Nam</option> <option value="main_global">Toàn cầu (trừ Hoa Kỳ)</option>
                         </select>
                     </div>
                 </div>
                 <div>
-                    <span class=\"font-medium text-gray-700 block mb-2\">Quyền lợi tùy chọn:</span>
-                    <div class=\"space-y-2\">
-                        <label class=\"flex items-center space-x-3 cursor-pointer\"><input type=\"checkbox\" class=\"form-checkbox health-scl-outpatient\" disabled> <span>Điều trị ngoại trú</span></label>
-                        <label class=\"flex items-center space-x-3 cursor-pointer\"><input type=\"checkbox\" class=\"form-checkbox health-scl-dental\" disabled> <span>Chăm sóc nha khoa</span></label>
+                    <span class="font-medium text-gray-700 block mb-2">Quyền lợi tùy chọn:</span>
+                    <div class="space-y-2">
+                        <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" class="form-checkbox health-scl-outpatient" disabled> <span>Điều trị ngoại trú</span></label>
+                        <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" class="form-checkbox health-scl-dental" disabled> <span>Chăm sóc nha khoa</span></label>
                     </div>
                 </div>
-                <div class=\"text-right font-semibold text-aia-red fee-display min-h-[1.5rem]\"></div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
             </div>
         </div>
-        <div class=\"product-section bhn-section hidden\">
-            <label class=\"flex items-center space-x-3 cursor-pointer\">
-                <input type=\"checkbox\" class=\"form-checkbox bhn-checkbox\"> <span class=\"text-lg font-medium text-gray-800\">Bảo hiểm Bệnh Hiểm Nghèo 2.0</span>
+        <div class="product-section bhn-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox bhn-checkbox"> <span class="text-lg font-medium text-gray-800">Bảo hiểm Bệnh Hiểm Nghèo 2.0</span>
             </label>
-            <div class=\"product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200\">
-                <div><label class=\"font-medium text-gray-700 block mb-1\">Số tiền bảo hiểm (STBH)</label><input type=\"text\" class=\"form-input bhn-stbh\" placeholder=\"VD: 500.000.000\"></div>
-                <div class=\"text-right font-semibold text-aia-red fee-display min-h-[1.5rem]\"></div>
+            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                <div><label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label><input type="text" class="form-input bhn-stbh" placeholder="VD: 500.000.000"></div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
             </div>
         </div>
-        <div class=\"product-section accident-section hidden\">
-            <label class=\"flex items-center space-x-3 cursor-pointer\">
-                <input type=\"checkbox\" class=\"form-checkbox accident-checkbox\"> <span class=\"text-lg font-medium text-gray-800\">Bảo hiểm Tai nạn</span>
+        <div class="product-section accident-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox accident-checkbox"> <span class="text-lg font-medium text-gray-800">Bảo hiểm Tai nạn</span>
             </label>
-            <div class=\"product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200\">
-                <div><label class=\"font-medium text-gray-700 block mb-1\">Số tiền bảo hiểm (STBH)</label><input type=\"text\" class=\"form-input accident-stbh\" placeholder=\"VD: 200.000.000\"></div>
-                <div class=\"text-right font-semibold text-aia-red fee-display min-h-[1.5rem]\"></div>
+            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                <div><label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label><input type="text" class="form-input accident-stbh" placeholder="VD: 200.000.000"></div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
             </div>
         </div>
-        <div class=\"product-section hospital-support-section hidden\">
-            <label class=\"flex items-center space-x-3 cursor-pointer\">
-                <input type=\"checkbox\" class=\"form-checkbox hospital-support-checkbox\"> <span class=\"text-lg font-medium text-gray-800\">Hỗ trợ chi phí nằm viện</span>
+        <div class="product-section hospital-support-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox hospital-support-checkbox"> <span class="text-lg font-medium text-gray-800">Hỗ trợ chi phí nằm viện</span>
             </label>
-            <div class=\"product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200\">
+            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
                 <div>
-                    <label class=\"font-medium text-gray-700 block mb-1\">Số tiền hỗ trợ/ngày</label><input type=\"text\" class=\"form-input hospital-support-stbh\" placeholder=\"VD: 300.000\">\n                    <p class=\"hospital-support-validation text-sm text-gray-500 mt-1\"></p>
+                    <label class="font-medium text-gray-700 block mb-1">Số tiền hỗ trợ/ngày</label><input type="text" class="form-input hospital-support-stbh" placeholder="VD: 300.000">
+                    <p class="hospital-support-validation text-sm text-gray-500 mt-1"></p>
                 </div>
-                <div class=\"text-right font-semibold text-aia-red fee-display min-h-[1.5rem]\"></div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
             </div>
         </div>
     `;

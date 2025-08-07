@@ -155,7 +155,7 @@ function initSummaryModal() {
         targetAgeInput.value = mainPersonInfo.age + 10 - 1;
         targetAgeInput.disabled = true;
     } else if (mainProduct === 'AN_BINH_UU_VIET') {
-        const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
+        const term = parseInt(document.getElementById('abuv-term')?.value || '5', 10);
         targetAgeInput.value = mainPersonInfo.age + term - 1;
         targetAgeInput.disabled = true;
     } else {
@@ -182,7 +182,7 @@ function updateTargetAge() {
         targetAgeInput.value = mainPersonInfo.age + 10 - 1;
         targetAgeInput.disabled = true;
     } else if (mainProduct === 'AN_BINH_UU_VIET') {
-        const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
+        const term = parseInt(document.getElementById('abuv-term')?.value || '5', 10);
         targetAgeInput.value = mainPersonInfo.age + term - 1;
         targetAgeInput.disabled = true;
     } else {
@@ -190,6 +190,9 @@ function updateTargetAge() {
         const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
         targetAgeInput.disabled = false;
         targetAgeInput.min = mainPersonInfo.age + paymentTerm - 1;
+        if (parseInt(targetAgeInput.value, 10) < mainPersonInfo.age + paymentTerm - 1) {
+            targetAgeInput.value = mainPersonInfo.age + paymentTerm - 1;
+        }
     }
 }
 
@@ -704,11 +707,11 @@ function generateSummaryTable() {
         // Tạo tiêu đề bảng
         let tableHtml = `<table class="w-full text-left border-collapse"><thead class="bg-gray-100"><tr>`;
         tableHtml += `<th class="p-2 border">Năm HĐ</th>`;
-        tableHtml += `<th class="p-2 border">Tuổi NĐBH Chính<br>(${mainPersonInfo.name})</th>`;
-        tableHtml += `<th class="p-2 border">Phí SP Chính<br>(${mainPersonInfo.name})</th>`;
-        tableHtml += `<th class="p-2 border">Phí SP Bổ Sung<br>(${mainPersonInfo.name})</th>`;
+        tableHtml += `<th class="p-2 border">Tuổi NĐBH Chính<br>(${sanitizeHtml(mainPersonInfo.name)})</th>`;
+        tableHtml += `<th class="p-2 border">Phí SP Chính<br>(${sanitizeHtml(mainPersonInfo.name)})</th>`;
+        tableHtml += `<th class="p-2 border">Phí SP Bổ Sung<br>(${sanitizeHtml(mainPersonInfo.name)})</th>`;
         suppPersons.forEach(person => {
-            tableHtml += `<th class="p-2 border">Phí SP Bổ Sung<br>(${person.name})</th>`;
+            tableHtml += `<th class="p-2 border">Phí SP Bổ Sung<br>(${sanitizeHtml(person.name)})</th>`;
         });
         tableHtml += `<th class="p-2 border">Tổng Phí Năm</th>`;
         tableHtml += `</tr></thead><tbody>`;
@@ -782,11 +785,11 @@ function generateSummaryTable() {
         });
         tableHtml += `<td class="p-2 border text-right">${formatCurrency(totalMainAcc + totalSuppAccMain + totalSuppAccAll)}</td>`;
         tableHtml += `</tr></tbody></table>`;
-        tableHtml += `<div class="mt-4 text-center"><button id="export-pdf-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Xuất PDF</button></div>`;
+        tableHtml += `<div class="mt-4 text-center"><button id="export-html-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Xuất HTML</button></div>`;
         container.innerHTML = tableHtml;
 
-        // Gắn sự kiện cho nút xuất PDF
-        document.getElementById('export-pdf-btn').addEventListener('click', () => exportToPDF(mainPersonInfo, suppPersons, targetAge, initialMainPremium, paymentTerm));
+        // Gắn sự kiện cho nút xuất HTML
+        document.getElementById('export-html-btn').addEventListener('click', () => exportToHTML(mainPersonInfo, suppPersons, targetAge, initialMainPremium, paymentTerm));
 
     } catch (e) {
         container.innerHTML = `<p class="text-red-600 font-semibold text-center">${e.message}</p>`;
@@ -795,26 +798,25 @@ function generateSummaryTable() {
     }
 }
 
-function exportToPDF(mainPersonInfo, suppPersons, targetAge, initialMainPremium, paymentTerm) {
-    // Tạo nội dung LaTeX
-    let latexContent = `
-\\documentclass[a4paper,12pt]{article}
-\\usepackage{ctex} % Hỗ trợ tiếng Việt
-\\usepackage{geometry}
-\\usepackage{booktabs}
-\\usepackage{longtable}
-\\usepackage{pdflscape}
-\\geometry{left=2cm,right=2cm,top=2cm,bottom=2cm}
-\\begin{document}
-\\begin{landscape}
-\\section*{Bảng Minh Họa Phí Bảo Hiểm}
-\\vspace{0.5cm}
-\\begin{longtable}{c c r r${suppPersons.map(() => ' r').join('')} r}
-\\toprule
-Năm HĐ & Tuổi NĐBH Chính (${mainPersonInfo.name.replace(/&/g, '\\&')}) & Phí SP Chính (${mainPersonInfo.name.replace(/&/g, '\\&')}) & Phí SP Bổ Sung (${mainPersonInfo.name.replace(/&/g, '\\&')})${suppPersons.map(p => ` & Phí SP Bổ Sung (${p.name.replace(/&/g, '\\&')})`).join('')} & Tổng Phí Năm \\\\
-\\midrule
-\\endhead
-`;
+function sanitizeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function exportToHTML(mainPersonInfo, suppPersons, targetAge, initialMainPremium, paymentTerm) {
+    let tableHtml = `
+        <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+            <thead style="background-color: #f3f4f6;">
+                <tr>
+                    <th style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">Năm HĐ</th>
+                    <th style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">Tuổi NĐBH Chính<br>(${sanitizeHtml(mainPersonInfo.name)})</th>
+                    <th style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">Phí SP Chính<br>(${sanitizeHtml(mainPersonInfo.name)})</th>
+                    <th style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">Phí SP Bổ Sung<br>(${sanitizeHtml(mainPersonInfo.name)})</th>
+                    ${suppPersons.map(person => `<th style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">Phí SP Bổ Sung<br>(${sanitizeHtml(person.name)})</th>`).join('')}
+                    <th style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">Tổng Phí Năm</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
     let totalMainAcc = 0;
     let totalSuppAccMain = 0;
@@ -851,38 +853,81 @@ Năm HĐ & Tuổi NĐBH Chính (${mainPersonInfo.name.replace(/&/g, '\\&')}) & P
             return suppPremium;
         });
 
-        latexContent += `${contractYear} & ${currentAgeMain} & ${formatCurrency(mainPremiumForYear, '').replace(/,/g, '.')}${suppPremiumMain > 0 ? ` & ${formatCurrency(suppPremiumMain, '').replace(/,/g, '.')}` : ' & 0'}${suppPremiums.map(p => ` & ${formatCurrency(p, '').replace(/,/g, '.')}`).join('')} & ${formatCurrency(mainPremiumForYear + suppPremiumMain + suppPremiums.reduce((sum, p) => sum + p, 0), '').replace(/,/g, '.')} \\\\ \n`;
+        tableHtml += `
+            <tr>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${contractYear}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${currentAgeMain}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(mainPremiumForYear)}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(suppPremiumMain)}</td>
+                ${suppPremiums.map(suppPremium => `<td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(suppPremium)}</td>`).join('')}
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right; font-weight: 600;">${formatCurrency(mainPremiumForYear + suppPremiumMain + suppPremiums.reduce((sum, p) => sum + p, 0))}</td>
+            </tr>
+        `;
     }
 
-    latexContent += `\\midrule
-\\multicolumn{2}{l}{\\textbf{Tổng cộng}} & ${formatCurrency(totalMainAcc, '').replace(/,/g, '.')} & ${formatCurrency(totalSuppAccMain, '').replace(/,/g, '.')}${suppPersons.map((_, index) => {
-        const totalSupp = suppPersons[index].container.querySelector('.supplementary-products-container') ? 
-            Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
-                const currentPersonAge = suppPersons[index].age + i;
-                let suppPremium = 0;
-                const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
-                if (suppContainer) {
-                    suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
-                    suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
-                    suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
-                    suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, currentPersonAge);
-                }
-                return sum + suppPremium;
-            }, 0) : 0;
-        return ` & ${formatCurrency(totalSupp, '').replace(/,/g, '.')}`;
-    }).join('')} & ${formatCurrency(totalMainAcc + totalSuppAccMain + totalSuppAccAll, '').replace(/,/g, '.')} \\\\
-\\bottomrule
-\\end{longtable}
-\\end{landscape}
-\\end{document}
-`;
+    tableHtml += `
+        <tr style="background-color: #e5e7eb; font-weight: bold;">
+            <td style="padding: 8px; border: 1px solid #d1d5db;" colspan="2">Tổng cộng</td>
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalMainAcc)}</td>
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalSuppAccMain)}</td>
+            ${suppPersons.map((_, index) => {
+                const totalSupp = suppPersons[index].container.querySelector('.supplementary-products-container') ? 
+                    Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
+                        const currentPersonAge = suppPersons[index].age + i;
+                        let suppPremium = 0;
+                        const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
+                        if (suppContainer) {
+                            suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                            suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                            suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                            suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, currentPersonAge);
+                        }
+                        return sum + suppPremium;
+                    }, 0) : 0;
+                return `<td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalSupp)}</td>`;
+            }).join('')}
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalMainAcc + totalSuppAccMain + totalSuppAccAll)}</td>
+        </tr>
+    </tbody></table>`;
 
-    // Tạo blob và kích hoạt tải xuống
-    const blob = new Blob([latexContent], { type: 'text/latex' });
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Minh Họa Phí Bảo Hiểm</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { text-align: center; color: #1f2937; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 8px; border: 1px solid #d1d5db; }
+        th { background-color: #f3f4f6; }
+        tr:nth-child(even) { background-color: #f9fafb; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Bảng Minh Họa Phí Bảo Hiểm</h1>
+    ${tableHtml}
+    <div style="margin-top: 20px; text-align: center;" class="no-print">
+        <button onclick="window.print()" style="background-color: #3b82f6; color: white; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer;">In thành PDF</button>
+    </div>
+</body>
+</html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'bang_minh_hoa_phi_bao_hiem.tex';
+    a.download = 'bang_minh_hoa_phi_bao_hiem.html';
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);

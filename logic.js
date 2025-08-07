@@ -160,7 +160,8 @@ function initSummaryModal() {
         targetAgeInput.value = mainPersonInfo.age + 10 - 1;
         targetAgeInput.disabled = true;
     } else if (mainProduct === 'AN_BINH_UU_VIET') {
-        const term = parseInt(document.getElementById('abuv-term')?.value || '5', 10);
+        const termSelect = document.getElementById('abuv-term');
+        const term = parseInt(termSelect?.value || '15', 10); // Mặc định 15 năm
         targetAgeInput.value = mainPersonInfo.age + term - 1;
         targetAgeInput.disabled = true;
     } else {
@@ -174,6 +175,7 @@ function initSummaryModal() {
     }
 
     // Thêm sự kiện để cập nhật target-age-input và bảng minh họa
+    const abuvTermSelect = document.getElementById('abuv-term');
     document.getElementById('main-product').addEventListener('change', () => {
         updateTargetAge();
         if (document.getElementById('summary-modal').classList.contains('hidden')) {
@@ -190,14 +192,16 @@ function initSummaryModal() {
             generateSummaryTable();
         }
     });
-    document.getElementById('abuv-term')?.addEventListener('change', () => {
-        updateTargetAge();
-        if (document.getElementById('summary-modal').classList.contains('hidden')) {
-            calculateAll();
-        } else {
-            generateSummaryTable();
-        }
-    });
+    if (abuvTermSelect) {
+        abuvTermSelect.addEventListener('change', () => {
+            updateTargetAge();
+            if (document.getElementById('summary-modal').classList.contains('hidden')) {
+                calculateAll();
+            } else {
+                generateSummaryTable();
+            }
+        });
+    }
     document.getElementById('payment-term')?.addEventListener('change', () => {
         updateTargetAge();
         if (document.getElementById('summary-modal').classList.contains('hidden')) {
@@ -218,7 +222,8 @@ function updateTargetAge() {
         targetAgeInput.value = mainPersonInfo.age + 10 - 1;
         targetAgeInput.disabled = true;
     } else if (mainProduct === 'AN_BINH_UU_VIET') {
-        const term = parseInt(document.getElementById('abuv-term')?.value || '5', 10);
+        const termSelect = document.getElementById('abuv-term');
+        const term = termSelect ? parseInt(termSelect.value || '15', 10) : 15;
         targetAgeInput.value = mainPersonInfo.age + term - 1;
         targetAgeInput.disabled = true;
     } else {
@@ -456,7 +461,7 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
             programSelect.disabled = false;
             programSelect.querySelectorAll('option').forEach(opt => {
                 if (opt.value === '') return;
-                if (mainProduct === 'TRON_TAM_AN' || mainPremium >= 15000000) {
+                if (mainPremium >= 15000000) {
                     opt.disabled = false;
                 } else if (mainPremium >= 10000000) {
                     opt.disabled = !['co_ban', 'nang_cao', 'toan_dien'].includes(opt.value);
@@ -680,16 +685,27 @@ function calculateHospitalSupportPremium(customer, mainPremium, container, total
     const ageToUse = ageOverride ?? customer.age;
     if (ageToUse > MAX_RENEWAL_AGE.hospital_support) return 0;
     
-    const maxSupport = ageToUse >= 18 ? 1_000_000 : 300_000;
+    // Hạn mức theo tuổi
+    const maxSupportByAge = ageToUse >= 18 ? 1_000_000 : 300_000;
+    // Hạn mức theo phí chính
+    const maxSupportByPremium = Math.floor(mainPremium / 4000000) * 100000;
+    // Lấy giá trị nhỏ hơn giữa hai hạn mức
+    const maxSupport = Math.min(maxSupportByAge, maxSupportByPremium);
     const remainingSupport = maxSupport - totalHospitalSupportStbh;
-    if (!ageOverride) section.querySelector('.hospital-support-validation').textContent = `Tối đa: ${formatCurrency(Math.min(maxSupport, remainingSupport), 'đ/ngày')}. Phải là bội số của 100.000.`;
+    
+    if (!ageOverride) {
+        section.querySelector('.hospital-support-validation').textContent = 
+            `Tối đa: ${formatCurrency(Math.min(maxSupport, remainingSupport), 'đ/ngày')}. Phải là bội số của 100.000.`;
+    }
 
     const stbh = parseFormattedNumber(section.querySelector('.hospital-support-stbh')?.value || '0');
     if (stbh === 0) {
         if (!ageOverride) section.querySelector('.fee-display').textContent = '';
         return 0;
     }
-    if (stbh > remainingSupport || stbh % 100000 !== 0) throw new Error(`Số tiền Hỗ trợ viện phí không hợp lệ. Tối đa còn lại: ${formatCurrency(remainingSupport, 'đ/ngày')}.`);
+    if (stbh > remainingSupport || stbh % 100000 !== 0) {
+        throw new Error(`Số tiền Hỗ trợ viện phí không hợp lệ. Tối đa còn lại: ${formatCurrency(remainingSupport, 'đ/ngày')}.`);
+    }
     
     const rate = product_data.hospital_fee_support_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.rate || 0;
     const premium = (stbh / 100) * rate;

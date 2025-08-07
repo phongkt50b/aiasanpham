@@ -26,18 +26,28 @@ document.addEventListener('DOMContentLoaded', () => {
 function attachGlobalListeners() {
     const allInputs = 'input, select';
     document.body.addEventListener('change', (e) => {
-        if (e.target.matches(allInputs)) calculateAll();
+        if (e.target.matches('.health-scl-checkbox')) {
+            const section = e.target.closest('.product-section');
+            const options = section.querySelector('.product-options');
+            if (e.target.checked) {
+                options.classList.remove('hidden');
+            } else {
+                options.classList.add('hidden');
+            }
+            calculateAll();
+        } else if (e.target.matches(allInputs)) {
+            calculateAll();
+        }
     });
     document.body.addEventListener('input', (e) => {
-        if (e.target.matches('input[type=\"text\"]') && !e.target.classList.contains('dob-input') && !e.target.classList.contains('occupation-input') && !e.target.classList.contains('name-input')) {
+        if (e.target.matches('input[type="text"]') && !e.target.classList.contains('dob-input') && !e.target.classList.contains('occupation-input') && !e.target.classList.contains('name-input')) {
             formatNumberInput(e.target);
             calculateAll();
-        } else if (e.target.matches('input[type=\"number\"]')) {
+        } else if (e.target.matches('input[type="number"]')) {
             calculateAll();
         }
     });
 }
-
 function initPerson(container, personId, isSupp = false) {
     if (!container) return;
     container.dataset.personId = personId;

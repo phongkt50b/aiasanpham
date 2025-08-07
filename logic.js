@@ -13,6 +13,11 @@ const MAX_RENEWAL_AGE = {
     health_scl: 74, bhn: 85, accident: 65, hospital_support: 59
 };
 
+const MAX_STBH = {
+    bhn: 5_000_000_000,
+    accident: 8_000_000_000
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     initPerson(document.getElementById('main-person-container'), 'main');
     initMainProductLogic();
@@ -168,11 +173,39 @@ function initSummaryModal() {
         }
     }
 
-    // Thêm sự kiện để cập nhật target-age-input
-    document.getElementById('main-product').addEventListener('change', updateTargetAge);
-    document.getElementById('dob-main').addEventListener('input', updateTargetAge);
-    document.getElementById('abuv-term')?.addEventListener('change', updateTargetAge);
-    document.getElementById('payment-term')?.addEventListener('change', updateTargetAge);
+    // Thêm sự kiện để cập nhật target-age-input và bảng minh họa
+    document.getElementById('main-product').addEventListener('change', () => {
+        updateTargetAge();
+        if (document.getElementById('summary-modal').classList.contains('hidden')) {
+            calculateAll();
+        } else {
+            generateSummaryTable();
+        }
+    });
+    document.getElementById('dob-main').addEventListener('input', () => {
+        updateTargetAge();
+        if (document.getElementById('summary-modal').classList.contains('hidden')) {
+            calculateAll();
+        } else {
+            generateSummaryTable();
+        }
+    });
+    document.getElementById('abuv-term')?.addEventListener('change', () => {
+        updateTargetAge();
+        if (document.getElementById('summary-modal').classList.contains('hidden')) {
+            calculateAll();
+        } else {
+            generateSummaryTable();
+        }
+    });
+    document.getElementById('payment-term')?.addEventListener('change', () => {
+        updateTargetAge();
+        if (document.getElementById('summary-modal').classList.contains('hidden')) {
+            calculateAll();
+        } else {
+            generateSummaryTable();
+        }
+    });
 }
 
 function updateTargetAge() {
@@ -306,6 +339,7 @@ function calculateAll() {
         updateSupplementaryProductVisibility(mainPersonInfo, mainPremium, document.querySelector('#main-supp-container .supplementary-products-container'));
 
         let totalSupplementaryPremium = 0;
+        let totalHospitalSupportStbh = 0; // Theo dõi tổng STBH viện phí
 
         document.querySelectorAll('.person-container').forEach(container => {
             const isMain = container.id === 'main-person-container';
@@ -319,7 +353,12 @@ function calculateAll() {
             totalSupplementaryPremium += calculateHealthSclPremium(personInfo, suppProductsContainer);
             totalSupplementaryPremium += calculateBhnPremium(personInfo, suppProductsContainer);
             totalSupplementaryPremium += calculateAccidentPremium(personInfo, suppProductsContainer);
-            totalSupplementaryPremium += calculateHospitalSupportPremium(personInfo, mainPremium, suppProductsContainer);
+            totalSupplementaryPremium += calculateHospitalSupportPremium(personInfo, mainPremium, suppProductsContainer, totalHospitalSupportStbh);
+            // Cập nhật tổng STBH viện phí
+            const hospitalSupportStbh = parseFormattedNumber(suppProductsContainer.querySelector('.hospital-support-stbh')?.value || '0');
+            if (suppProductsContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                totalHospitalSupportStbh += hospitalSupportStbh;
+            }
         });
 
         const totalPremium = mainPremium + totalSupplementaryPremium;
@@ -375,7 +414,7 @@ function updateMainProductVisibility(customer) {
 }
 
 function updateSupplementaryProductVisibility(customer, mainPremium, container) {
-    const { age } = customer;
+    const { age, riskGroup } = customer;
     const mainProduct = document.getElementById('main-product').value;
 
     const showOrHide = (sectionId, productKey, condition) => {
@@ -386,7 +425,7 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
         }
         const checkbox = section.querySelector('input[type="checkbox"]');
         const options = section.querySelector('.product-options');
-        const finalCondition = condition && age >= 0 && age <= MAX_ENTRY_AGE[productKey];
+        const finalCondition = condition && age >= 0 && age <= MAX_ENTRY_AGE[productKey] && (sectionId !== 'health-scl' || riskGroup !== 4);
 
         if (finalCondition) {
             section.classList.remove('hidden');
@@ -600,6 +639,7 @@ function calculateBhnPremium(customer, container, ageOverride = null) {
         if (!ageOverride) section.querySelector('.fee-display').textContent = '';
         return 0;
     }
+    if (stbh > MAX_STBH.bhn) throw new Error(`Số tiền bảo hiểm Bệnh Hiểm Nghèo 2.0 không được vượt quá ${formatCurrency(MAX_STBH.bhn, '')}.`);
 
     const rate = product_data.bhn_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.[gender === 'Nữ' ? 'nu' : 'nam'] || 0;
     const premium = (stbh / 1000) * rate;
@@ -623,6 +663,7 @@ function calculateAccidentPremium(customer, container, ageOverride = null) {
         if (!ageOverride) section.querySelector('.fee-display').textContent = '';
         return 0;
     }
+    if (stbh > MAX_STBH.accident) throw new Error(`Số tiền bảo hiểm Tai nạn không được vượt quá ${formatCurrency(MAX_STBH.accident, '')}.`);
 
     const rate = product_data.accident_rates[riskGroup] || 0;
     const premium = (stbh / 1000) * rate;
@@ -630,7 +671,7 @@ function calculateAccidentPremium(customer, container, ageOverride = null) {
     return premium;
 }
 
-function calculateHospitalSupportPremium(customer, mainPremium, container, ageOverride = null) {
+function calculateHospitalSupportPremium(customer, mainPremium, container, totalHospitalSupportStbh = 0, ageOverride = null) {
     const section = container.querySelector('.hospital-support-section');
     if (!section || !section.querySelector('.hospital-support-checkbox')?.checked) {
         if(section && !ageOverride) section.querySelector('.fee-display').textContent = '';
@@ -639,15 +680,16 @@ function calculateHospitalSupportPremium(customer, mainPremium, container, ageOv
     const ageToUse = ageOverride ?? customer.age;
     if (ageToUse > MAX_RENEWAL_AGE.hospital_support) return 0;
     
-    const maxSupport = Math.floor(mainPremium / 4000000) * 100000;
-    if (!ageOverride) section.querySelector('.hospital-support-validation').textContent = `Tối đa: ${formatCurrency(maxSupport, 'đ/ngày')}. Phải là bội số của 100.000.`;
+    const maxSupport = ageToUse >= 18 ? 1_000_000 : 300_000;
+    const remainingSupport = maxSupport - totalHospitalSupportStbh;
+    if (!ageOverride) section.querySelector('.hospital-support-validation').textContent = `Tối đa: ${formatCurrency(Math.min(maxSupport, remainingSupport), 'đ/ngày')}. Phải là bội số của 100.000.`;
 
     const stbh = parseFormattedNumber(section.querySelector('.hospital-support-stbh')?.value || '0');
     if (stbh === 0) {
         if (!ageOverride) section.querySelector('.fee-display').textContent = '';
         return 0;
     }
-    if (stbh > maxSupport || stbh % 100000 !== 0) throw new Error(`Số tiền Hỗ trợ viện phí không hợp lệ.`);
+    if (stbh > remainingSupport || stbh % 100000 !== 0) throw new Error(`Số tiền Hỗ trợ viện phí không hợp lệ. Tối đa còn lại: ${formatCurrency(remainingSupport, 'đ/ngày')}.`);
     
     const rate = product_data.hospital_fee_support_rates.find(r => ageToUse >= r.ageMin && ageToUse <= r.ageMax)?.rate || 0;
     const premium = (stbh / 100) * rate;
@@ -730,12 +772,17 @@ function generateSummaryTable() {
             totalMainAcc += mainPremiumForYear;
 
             let suppPremiumMain = 0;
+            let totalHospitalSupportStbh = 0; // Reset tổng STBH viện phí mỗi năm
             const mainSuppContainer = document.querySelector('#main-supp-container .supplementary-products-container');
             if (mainSuppContainer) {
                 suppPremiumMain += calculateHealthSclPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
                 suppPremiumMain += calculateBhnPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
                 suppPremiumMain += calculateAccidentPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
-                suppPremiumMain += calculateHospitalSupportPremium({ ...mainPersonInfo, age: currentAgeMain }, initialMainPremium, mainSuppContainer, currentAgeMain);
+                suppPremiumMain += calculateHospitalSupportPremium({ ...mainPersonInfo, age: currentAgeMain }, initialMainPremium, mainSuppContainer, totalHospitalSupportStbh, currentAgeMain);
+                const hospitalSupportStbh = parseFormattedNumber(mainSuppContainer.querySelector('.hospital-support-stbh')?.value || '0');
+                if (mainSuppContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                    totalHospitalSupportStbh += hospitalSupportStbh;
+                }
             }
             totalSuppAccMain += suppPremiumMain;
 
@@ -747,7 +794,11 @@ function generateSummaryTable() {
                     suppPremium += calculateHealthSclPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
                     suppPremium += calculateBhnPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
                     suppPremium += calculateAccidentPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
-                    suppPremium += calculateHospitalSupportPremium({ ...person, age: currentPersonAge }, initialMainPremium, suppProductsContainer, currentPersonAge);
+                    suppPremium += calculateHospitalSupportPremium({ ...person, age: currentPersonAge }, initialMainPremium, suppProductsContainer, totalHospitalSupportStbh, currentPersonAge);
+                    const hospitalSupportStbh = parseFormattedNumber(suppProductsContainer.querySelector('.hospital-support-stbh')?.value || '0');
+                    if (suppProductsContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                        totalHospitalSupportStbh += hospitalSupportStbh;
+                    }
                 }
                 totalSuppAccAll += suppPremium;
                 return suppPremium;
@@ -773,12 +824,17 @@ function generateSummaryTable() {
                 Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
                     const currentPersonAge = suppPersons[index].age + i;
                     let suppPremium = 0;
+                    let totalHospitalSupportStbh = 0; // Reset tổng STBH viện phí mỗi người
                     const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
                     if (suppContainer) {
                         suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
                         suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
                         suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
-                        suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, currentPersonAge);
+                        suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, totalHospitalSupportStbh, currentPersonAge);
+                        const hospitalSupportStbh = parseFormattedNumber(suppContainer.querySelector('.hospital-support-stbh')?.value || '0');
+                        if (suppContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                            totalHospitalSupportStbh += hospitalSupportStbh;
+                        }
                     }
                     return sum + suppPremium;
                 }, 0) : 0;
@@ -831,12 +887,17 @@ function exportToHTML(mainPersonInfo, suppPersons, targetAge, initialMainPremium
         totalMainAcc += mainPremiumForYear;
 
         let suppPremiumMain = 0;
+        let totalHospitalSupportStbh = 0; // Reset tổng STBH viện phí mỗi năm
         const mainSuppContainer = document.querySelector('#main-supp-container .supplementary-products-container');
         if (mainSuppContainer) {
             suppPremiumMain += calculateHealthSclPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
             suppPremiumMain += calculateBhnPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
             suppPremiumMain += calculateAccidentPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
-            suppPremiumMain += calculateHospitalSupportPremium({ ...mainPersonInfo, age: currentAgeMain }, initialMainPremium, mainSuppContainer, currentAgeMain);
+            suppPremiumMain += calculateHospitalSupportPremium({ ...mainPersonInfo, age: currentAgeMain }, initialMainPremium, mainSuppContainer, totalHospitalSupportStbh, currentAgeMain);
+            const hospitalSupportStbh = parseFormattedNumber(mainSuppContainer.querySelector('.hospital-support-stbh')?.value || '0');
+            if (mainSuppContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                totalHospitalSupportStbh += hospitalSupportStbh;
+            }
         }
         totalSuppAccMain += suppPremiumMain;
 
@@ -848,7 +909,11 @@ function exportToHTML(mainPersonInfo, suppPersons, targetAge, initialMainPremium
                 suppPremium += calculateHealthSclPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
                 suppPremium += calculateBhnPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
                 suppPremium += calculateAccidentPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
-                suppPremium += calculateHospitalSupportPremium({ ...person, age: currentPersonAge }, initialMainPremium, suppProductsContainer, currentPersonAge);
+                suppPremium += calculateHospitalSupportPremium({ ...person, age: currentPersonAge }, initialMainPremium, suppProductsContainer, totalHospitalSupportStbh, currentPersonAge);
+                const hospitalSupportStbh = parseFormattedNumber(suppProductsContainer.querySelector('.hospital-support-stbh')?.value || '0');
+                if (suppProductsContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                    totalHospitalSupportStbh += hospitalSupportStbh;
+                }
             }
             totalSuppAccAll += suppPremium;
             return suppPremium;
@@ -876,12 +941,17 @@ function exportToHTML(mainPersonInfo, suppPersons, targetAge, initialMainPremium
                     Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
                         const currentPersonAge = suppPersons[index].age + i;
                         let suppPremium = 0;
+                        let totalHospitalSupportStbh = 0; // Reset tổng STBH viện phí mỗi người
                         const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
                         if (suppContainer) {
                             suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
                             suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
                             suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
-                            suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, currentPersonAge);
+                            suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, totalHospitalSupportStbh, currentPersonAge);
+                            const hospitalSupportStbh = parseFormattedNumber(suppContainer.querySelector('.hospital-support-stbh')?.value || '0');
+                            if (suppContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                                totalHospitalSupportStbh += hospitalSupportStbh;
+                            }
                         }
                         return sum + suppPremium;
                     }, 0) : 0;

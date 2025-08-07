@@ -290,7 +290,6 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
             if (checkbox.checked) checkbox.checked = false;
             checkbox.disabled = true;
         }
-    };
 
         // Giới hạn chương trình dựa trên phí chính
         if (sectionId === 'health-scl' && finalCondition) {

@@ -152,23 +152,24 @@ function initSummaryModal() {
     const mainProduct = mainPersonInfo.mainProduct;
 
     if (mainProduct === 'TRON_TAM_AN') {
-        targetAgeInput.value = mainPersonInfo.age + 10;
+        targetAgeInput.value = mainPersonInfo.age + 10 - 1;
         targetAgeInput.disabled = true;
     } else if (mainProduct === 'AN_BINH_UU_VIET') {
         const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
-        targetAgeInput.value = mainPersonInfo.age + term;
+        targetAgeInput.value = mainPersonInfo.age + term - 1;
         targetAgeInput.disabled = true;
-    } else if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
-        targetAgeInput.disabled = false;
-        targetAgeInput.min = mainPersonInfo.age + 30;
     } else {
+        const paymentTermInput = document.getElementById('payment-term');
+        const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
         targetAgeInput.disabled = false;
+        targetAgeInput.min = mainPersonInfo.age + paymentTerm - 1;
     }
 
     // Thêm sự kiện để cập nhật target-age-input
     document.getElementById('main-product').addEventListener('change', updateTargetAge);
     document.getElementById('dob-main').addEventListener('input', updateTargetAge);
     document.getElementById('abuv-term')?.addEventListener('change', updateTargetAge);
+    document.getElementById('payment-term')?.addEventListener('change', updateTargetAge);
 }
 
 function updateTargetAge() {
@@ -178,19 +179,17 @@ function updateTargetAge() {
     const targetAgeInput = document.getElementById('target-age-input');
 
     if (mainProduct === 'TRON_TAM_AN') {
-        targetAgeInput.value = mainPersonInfo.age + 10;
+        targetAgeInput.value = mainPersonInfo.age + 10 - 1;
         targetAgeInput.disabled = true;
     } else if (mainProduct === 'AN_BINH_UU_VIET') {
         const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
-        targetAgeInput.value = mainPersonInfo.age + term;
+        targetAgeInput.value = mainPersonInfo.age + term - 1;
         targetAgeInput.disabled = true;
     } else {
+        const paymentTermInput = document.getElementById('payment-term');
+        const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
         targetAgeInput.disabled = false;
-        if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
-            targetAgeInput.min = mainPersonInfo.age + 30;
-        } else {
-            targetAgeInput.min = mainPersonInfo.age + 1;
-        }
+        targetAgeInput.min = mainPersonInfo.age + paymentTerm - 1;
     }
 }
 
@@ -679,10 +678,6 @@ function generateSummaryTable() {
             throw new Error("Vui lòng nhập một độ tuổi mục tiêu hợp lệ, lớn hơn tuổi hiện tại của NĐBH chính.");
         }
 
-        if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainPersonInfo.mainProduct) && targetAge < mainPersonInfo.age + 30) {
-            throw new Error(`Độ tuổi mục tiêu phải lớn hơn hoặc bằng ${mainPersonInfo.age + 30} đối với ${mainPersonInfo.mainProduct}.`);
-        }
-        
         let paymentTerm = 999;
         const paymentTermInput = document.getElementById('payment-term');
         if (paymentTermInput) {
@@ -691,6 +686,10 @@ function generateSummaryTable() {
             paymentTerm = parseInt(document.getElementById('abuv-term')?.value, 10);
         } else if (mainPersonInfo.mainProduct === 'TRON_TAM_AN') {
             paymentTerm = 10;
+        }
+
+        if (['PUL_TRON_DOI', 'PUL_5_NAM', 'PUL_15_NAM', 'KHOE_BINH_AN', 'VUNG_TUONG_LAI'].includes(mainPersonInfo.mainProduct) && targetAge < mainPersonInfo.age + paymentTerm - 1) {
+            throw new Error(`Độ tuổi mục tiêu phải lớn hơn hoặc bằng ${mainPersonInfo.age + paymentTerm - 1} đối với ${mainPersonInfo.mainProduct}.`);
         }
 
         // Thu thập thông tin tất cả NĐBH bổ sung
@@ -783,13 +782,111 @@ function generateSummaryTable() {
         });
         tableHtml += `<td class="p-2 border text-right">${formatCurrency(totalMainAcc + totalSuppAccMain + totalSuppAccAll)}</td>`;
         tableHtml += `</tr></tbody></table>`;
+        tableHtml += `<div class="mt-4 text-center"><button id="export-pdf-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Xuất PDF</button></div>`;
         container.innerHTML = tableHtml;
+
+        // Gắn sự kiện cho nút xuất PDF
+        document.getElementById('export-pdf-btn').addEventListener('click', () => exportToPDF(mainPersonInfo, suppPersons, targetAge, initialMainPremium, paymentTerm));
 
     } catch (e) {
         container.innerHTML = `<p class="text-red-600 font-semibold text-center">${e.message}</p>`;
     } finally {
         modal.classList.remove('hidden');
     }
+}
+
+function exportToPDF(mainPersonInfo, suppPersons, targetAge, initialMainPremium, paymentTerm) {
+    // Tạo nội dung LaTeX
+    let latexContent = `
+\\documentclass[a4paper,12pt]{article}
+\\usepackage{ctex} % Hỗ trợ tiếng Việt
+\\usepackage{geometry}
+\\usepackage{booktabs}
+\\usepackage{longtable}
+\\usepackage{pdflscape}
+\\geometry{left=2cm,right=2cm,top=2cm,bottom=2cm}
+\\begin{document}
+\\begin{landscape}
+\\section*{Bảng Minh Họa Phí Bảo Hiểm}
+\\vspace{0.5cm}
+\\begin{longtable}{c c r r${suppPersons.map(() => ' r').join('')} r}
+\\toprule
+Năm HĐ & Tuổi NĐBH Chính (${mainPersonInfo.name.replace(/&/g, '\\&')}) & Phí SP Chính (${mainPersonInfo.name.replace(/&/g, '\\&')}) & Phí SP Bổ Sung (${mainPersonInfo.name.replace(/&/g, '\\&')})${suppPersons.map(p => ` & Phí SP Bổ Sung (${p.name.replace(/&/g, '\\&')})`).join('')} & Tổng Phí Năm \\\\
+\\midrule
+\\endhead
+`;
+
+    let totalMainAcc = 0;
+    let totalSuppAccMain = 0;
+    let totalSuppAccAll = 0;
+
+    for (let i = 0; (mainPersonInfo.age + i) <= targetAge; i++) {
+        const currentAgeMain = mainPersonInfo.age + i;
+        const contractYear = i + 1;
+        
+        const mainPremiumForYear = (contractYear <= paymentTerm) ? initialMainPremium : 0;
+        totalMainAcc += mainPremiumForYear;
+
+        let suppPremiumMain = 0;
+        const mainSuppContainer = document.querySelector('#main-supp-container .supplementary-products-container');
+        if (mainSuppContainer) {
+            suppPremiumMain += calculateHealthSclPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
+            suppPremiumMain += calculateBhnPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
+            suppPremiumMain += calculateAccidentPremium({ ...mainPersonInfo, age: currentAgeMain }, mainSuppContainer, currentAgeMain);
+            suppPremiumMain += calculateHospitalSupportPremium({ ...mainPersonInfo, age: currentAgeMain }, initialMainPremium, mainSuppContainer, currentAgeMain);
+        }
+        totalSuppAccMain += suppPremiumMain;
+
+        const suppPremiums = suppPersons.map(person => {
+            const currentPersonAge = person.age + i;
+            const suppProductsContainer = person.container.querySelector('.supplementary-products-container');
+            let suppPremium = 0;
+            if (suppProductsContainer) {
+                suppPremium += calculateHealthSclPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
+                suppPremium += calculateBhnPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
+                suppPremium += calculateAccidentPremium({ ...person, age: currentPersonAge }, suppProductsContainer, currentPersonAge);
+                suppPremium += calculateHospitalSupportPremium({ ...person, age: currentPersonAge }, initialMainPremium, suppProductsContainer, currentPersonAge);
+            }
+            totalSuppAccAll += suppPremium;
+            return suppPremium;
+        });
+
+        latexContent += `${contractYear} & ${currentAgeMain} & ${formatCurrency(mainPremiumForYear, '').replace(/,/g, '.')}${suppPremiumMain > 0 ? ` & ${formatCurrency(suppPremiumMain, '').replace(/,/g, '.')}` : ' & 0'}${suppPremiums.map(p => ` & ${formatCurrency(p, '').replace(/,/g, '.')}`).join('')} & ${formatCurrency(mainPremiumForYear + suppPremiumMain + suppPremiums.reduce((sum, p) => sum + p, 0), '').replace(/,/g, '.')} \\\\ \n`;
+    }
+
+    latexContent += `\\midrule
+\\multicolumn{2}{l}{\\textbf{Tổng cộng}} & ${formatCurrency(totalMainAcc, '').replace(/,/g, '.')} & ${formatCurrency(totalSuppAccMain, '').replace(/,/g, '.')}${suppPersons.map((_, index) => {
+        const totalSupp = suppPersons[index].container.querySelector('.supplementary-products-container') ? 
+            Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
+                const currentPersonAge = suppPersons[index].age + i;
+                let suppPremium = 0;
+                const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
+                if (suppContainer) {
+                    suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                    suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                    suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                    suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, currentPersonAge);
+                }
+                return sum + suppPremium;
+            }, 0) : 0;
+        return ` & ${formatCurrency(totalSupp, '').replace(/,/g, '.')}`;
+    }).join('')} & ${formatCurrency(totalMainAcc + totalSuppAccMain + totalSuppAccAll, '').replace(/,/g, '.')} \\\\
+\\bottomrule
+\\end{longtable}
+\\end{landscape}
+\\end{document}
+`;
+
+    // Tạo blob và kích hoạt tải xuống
+    const blob = new Blob([latexContent], { type: 'text/latex' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bang_minh_hoa_phi_bao_hiem.tex';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
 
 function formatCurrency(value, suffix = ' VNĐ') {

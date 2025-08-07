@@ -1,5 +1,4 @@
 import { product_data } from './data.js';
-import html2pdf from 'html2pdf.js'; // Giả sử có tích hợp xuất PDF
 
 let supplementaryInsuredCount = 0;
 let currentMainProductState = { product: null, age: null };
@@ -159,14 +158,14 @@ function initSummaryModal() {
         const term = parseInt(document.getElementById('abuv-term')?.value || '0', 10);
         targetAgeInput.value = mainPersonInfo.age + term;
         targetAgeInput.disabled = true;
+    } else if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
+        targetAgeInput.disabled = false;
+        targetAgeInput.min = mainPersonInfo.age + 30;
     } else {
         targetAgeInput.disabled = false;
-        if (['PUL_5_NAM', 'PUL_15_NAM'].includes(mainProduct)) {
-            targetAgeInput.min = mainPersonInfo.age + 30;
-        }
     }
 
-    // Cập nhật target-age-input khi thay đổi ngày sinh hoặc thời hạn đóng phí
+    // Thêm sự kiện để cập nhật target-age-input
     document.getElementById('main-product').addEventListener('change', updateTargetAge);
     document.getElementById('dob-main').addEventListener('input', updateTargetAge);
     document.getElementById('abuv-term')?.addEventListener('change', updateTargetAge);

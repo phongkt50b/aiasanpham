@@ -163,6 +163,9 @@ function initSummaryModal() {
         const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
         targetAgeInput.disabled = false;
         targetAgeInput.min = mainPersonInfo.age + paymentTerm - 1;
+        if (!targetAgeInput.value || parseInt(targetAgeInput.value, 10) < mainPersonInfo.age + paymentTerm - 1) {
+            targetAgeInput.value = mainPersonInfo.age + paymentTerm - 1;
+        }
     }
 
     // Thêm sự kiện để cập nhật target-age-input
@@ -190,7 +193,7 @@ function updateTargetAge() {
         const paymentTerm = paymentTermInput ? parseInt(paymentTermInput.value, 10) || 0 : 0;
         targetAgeInput.disabled = false;
         targetAgeInput.min = mainPersonInfo.age + paymentTerm - 1;
-        if (parseInt(targetAgeInput.value, 10) < mainPersonInfo.age + paymentTerm - 1) {
+        if (!targetAgeInput.value || parseInt(targetAgeInput.value, 10) < mainPersonInfo.age + paymentTerm - 1) {
             targetAgeInput.value = mainPersonInfo.age + paymentTerm - 1;
         }
     }
@@ -455,6 +458,7 @@ function renderMainProductOptions(customer) {
     
     let currentStbh = container.querySelector('#main-stbh')?.value || '';
     let currentPremium = container.querySelector('#main-premium-input')?.value || '';
+    let currentPaymentTerm = container.querySelector('#payment-term')?.value || '';
     
     container.innerHTML = '';
     if (!mainProduct) return;
@@ -475,10 +479,7 @@ function renderMainProductOptions(customer) {
         if (['KHOE_BINH_AN', 'VUNG_TUONG_LAI'].includes(mainProduct)) {
             optionsHtml += `<div><label for=\"main-premium-input\" class=\"font-medium text-gray-700 block mb-1\">Phí sản phẩm chính</label><input type=\"text\" id=\"main-premium-input\" class=\"form-input\" value=\"${currentPremium}\" placeholder=\"Nhập phí\"><div id=\"mul-fee-range\" class=\"text-sm text-gray-500 mt-1\"></div></div>`;
         }
-        if (['PUL_TRON_DOI', 'PUL_15_NAM', 'PUL_5_NAM'].includes(mainProduct)) {
-            const minTerm = mainProduct === 'PUL_5_NAM' ? 5 : mainProduct === 'PUL_15_NAM' ? 15 : 1;
-            optionsHtml += `<div><label for=\"payment-term\" class=\"font-medium text-gray-700 block mb-1\">Thời gian đóng phí (năm)</label><input type=\"number\" id=\"payment-term\" class=\"form-input\" placeholder=\"VD: 20\" min=\"${minTerm}\"></div>`;
-        }
+        optionsHtml += `<div><label for=\"payment-term\" class=\"font-medium text-gray-700 block mb-1\">Thời gian đóng phí (năm)</label><input type=\"number\" id=\"payment-term\" class=\"form-input\" value=\"${currentPaymentTerm}\" placeholder=\"VD: 20\" min=\"${mainProduct === 'PUL_5_NAM' ? 5 : mainProduct === 'PUL_15_NAM' ? 15 : 1}\"></div>`;
     }
     
     container.innerHTML = optionsHtml;

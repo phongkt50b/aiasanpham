@@ -275,31 +275,46 @@ function updateMainProductVisibility(customer) {
 function updateSupplementaryProductVisibility(customer, mainPremium, container) {
     const { age } = customer;
     const mainProduct = document.getElementById('main-product').value;
-
     const showOrHide = (sectionId, productKey, condition) => {
         const section = container.querySelector(`.${sectionId}-section`);
-        if (!section) return;
-        const checkbox = section.querySelector('input[type=\"checkbox\"]');
+        if (!section) {
+            console.error(`Không tìm thấy section ${sectionId}`);
+            return;
+        }
+        const checkbox = section.querySelector('input[type="checkbox"]');
+        const options = section.querySelector('.product-options');
         const finalCondition = condition && age >= 0 && age <= MAX_ENTRY_AGE[productKey];
 
         if (finalCondition) {
             section.classList.remove('hidden');
             checkbox.disabled = false;
+            if (sectionId === 'health-scl' && mainProduct === 'TRON_TAM_AN') {
+                checkbox.checked = true;
+                checkbox.disabled = true;
+            }
+            if (checkbox.checked) {
+                options.classList.remove('hidden');
+            } else {
+                options.classList.add('hidden');
+            }
         } else {
             section.classList.add('hidden');
-            if (checkbox.checked) checkbox.checked = false;
+            checkbox.checked = false;
             checkbox.disabled = true;
+            options.classList.add('hidden');
         }
 
-        // Giới hạn chương trình dựa trên phí chính
-        if (sectionId === 'health-scl' && finalCondition) {
+        if (sectionId === 'health-scl' && finalCondition && checkbox.checked) {
             const programSelect = section.querySelector('.health-scl-program');
+            if (!programSelect) {
+                console.error('Không tìm thấy dropdown chương trình Sức khỏe Bùng Gia Lực');
+                return;
+            }
+            programSelect.disabled = false;
             programSelect.querySelectorAll('option').forEach(opt => {
                 if (opt.value === '') return;
-                if (mainProduct === 'TRON_TAM_AN') {
-                    opt.disabled = false; // Cho phép chọn tất cả chương trình
-                } else if (mainPremium >= 15000000) {
-                    opt.disabled = false; // Cho phép tất cả chương trình
+                if (mainProduct === 'TRON_TAM_AN' || mainPremium >= 15000000) {
+                    opt.disabled = false;
                 } else if (mainPremium >= 10000000) {
                     opt.disabled = !['co_ban', 'nang_cao', 'toan_dien'].includes(opt.value);
                 } else if (mainPremium >= 5000000) {

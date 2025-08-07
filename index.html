@@ -40,7 +40,7 @@
                                     <option value="Nữ">Nữ</option>
                                 </select>
                             </div>
-                             <div class="flex items-end space-x-4">
+                            <div class="flex items-end space-x-4">
                                 <p class="text-lg">Tuổi: <span id="age-main" class="font-bold text-aia-red age-span">0</span></p>
                             </div>
                             <div class="relative">
@@ -48,7 +48,7 @@
                                 <input type="text" id="occupation-input-main" class="form-input occupation-input" placeholder="Gõ để tìm nghề nghiệp...">
                                 <div class="occupation-autocomplete absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden max-h-60 overflow-y-auto"></div>
                             </div>
-                             <div class="flex items-end space-x-4">
+                            <div class="flex items-end space-x-4">
                                 <p class="text-lg">Nhóm nghề: <span id="risk-group-main" class="font-bold text-aia-red risk-group-span">...</span></p>
                             </div>
                         </div>
@@ -59,7 +59,7 @@
                 <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                     <h2 class="text-xl font-bold text-aia-red mb-4">2. Lựa Chọn Sản Phẩm Chính</h2>
                     <div id="main-product-container" class="space-y-3">
-                         <select id="main-product" class="form-select">
+                        <select id="main-product" class="form-select">
                             <option value="">-- Chọn sản phẩm chính --</option>
                             <option value="PUL_TRON_DOI">PUL Trọn đời</option>
                             <option value="PUL_15_NAM">PUL 15 năm</option>
@@ -75,67 +75,99 @@
                 </div>
 
                 <!-- Sản phẩm bổ sung -->
-        <div id="main-supp-container" class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 class="text-xl font-bold text-aia-red mb-4">3. Lựa Chọn Sản Phẩm Bổ Sung (Cho NĐBH Chính)</h2>
-            <div class="supplementary-products-container space-y-6">
-                <div class="product-section health-scl-section hidden">
-                    <label class="flex items-center space-x-3 cursor-pointer">
-                        <input type="checkbox" class="form-checkbox health-scl-checkbox">
-                        <span class="text-lg font-medium text-gray-800">Sức khỏe Bùng Gia Lực</span>
-                    </label>
-                    <div class="product-options hidden mt-3 pl-8 space-y-4 border-l-2 border-gray-200">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="font-medium text-gray-700 block mb-1">Quyền lợi chính (Bắt buộc)</label>
-                                <select class="form-select health-scl-program">
-                                    <option value="">-- Chọn chương trình --</option>
-                                    <option value="co_ban">Cơ bản</option>
-                                    <option value="nang_cao">Nâng cao</option>
-                                    <option value="toan_dien">Toàn diện</option>
-                                    <option value="hoan_hao">Hoàn hảo</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="font-medium text-gray-700 block mb-1">Phạm vi địa lý</label>
-                                <select class="form-select health-scl-scope">
-                                    <option value="main_vn">Việt Nam</option>
-                                    <option value="main_global">Toàn cầu (trừ Hoa Kỳ)</option>
-                                </select>
+                <div id="main-supp-container" class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-bold text-aia-red mb-4">3. Lựa Chọn Sản Phẩm Bổ Sung (Cho NĐBH Chính)</h2>
+                    <div class="supplementary-products-container space-y-6">
+                        <div class="product-section health-scl-section hidden">
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="checkbox" class="form-checkbox health-scl-checkbox">
+                                <span class="text-lg font-medium text-gray-800">Sức khỏe Bùng Gia Lực</span>
+                            </label>
+                            <div class="product-options hidden mt-3 pl-8 space-y-4 border-l-2 border-gray-200">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="font-medium text-gray-700 block mb-1">Quyền lợi chính (Bắt buộc)</label>
+                                        <select class="form-select health-scl-program" disabled>
+                                            <option value="">-- Chọn chương trình --</option>
+                                            <option value="co_ban">Cơ bản</option>
+                                            <option value="nang_cao">Nâng cao</option>
+                                            <option value="toan_dien">Toàn diện</option>
+                                            <option value="hoan_hao">Hoàn hảo</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="font-medium text-gray-700 block mb-1">Phạm vi địa lý</label>
+                                        <select class="form-select health-scl-scope" disabled>
+                                            <option value="main_vn">Việt Nam</option>
+                                            <option value="main_global">Toàn cầu (trừ Hoa Kỳ)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="font-medium text-gray-700 block mb-2">Quyền lợi tùy chọn:</span>
+                                    <div class="space-y-2">
+                                        <label class="flex items-center space-x-3 cursor-pointer">
+                                            <input type="checkbox" class="form-checkbox health-scl-outpatient" disabled>
+                                            <span>Điều trị ngoại trú</span>
+                                        </label>
+                                        <label class="flex items-center space-x-3 cursor-pointer">
+                                            <input type="checkbox" class="form-checkbox health-scl-dental" disabled>
+                                            <span>Chăm sóc nha khoa</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-4">
-                            <label class="flex items-center space-x-2">
-                                <input type="checkbox" class="form-checkbox health-scl-outpatient">
-                                <span>Ngoại trú</span>
+                        <div class="product-section bhn-section hidden">
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="checkbox" class="form-checkbox bhn-checkbox">
+                                <span class="text-lg font-medium text-gray-800">Bệnh Hiểm Nghèo 2.0</span>
                             </label>
-                            <label class="flex items-center space-x-2">
-                                <input type="checkbox" class="form-checkbox health-scl-dental">
-                                <span>Nha khoa</span>
+                            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                                <div>
+                                    <label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label>
+                                    <input type="text" class="form-input bhn-stbh" placeholder="VD: 200.000.000">
+                                </div>
+                                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+                            </div>
+                        </div>
+                        <div class="product-section accident-section hidden">
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="checkbox" class="form-checkbox accident-checkbox">
+                                <span class="text-lg font-medium text-gray-800">Bảo hiểm Tai nạn</span>
                             </label>
+                            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                                <div>
+                                    <label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label>
+                                    <input type="text" class="form-input accident-stbh" placeholder="VD: 200.000.000">
+                                </div>
+                                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+                            </div>
+                        </div>
+                        <div class="product-section hospital-support-section hidden">
+                            <label class="flex items-center space-x-3 cursor-pointer">
+                                <input type="checkbox" class="form-checkbox hospital-support-checkbox">
+                                <span class="text-lg font-medium text-gray-800">Hỗ trợ chi phí nằm viện</span>
+                            </label>
+                            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                                <div>
+                                    <label class="font-medium text-gray-700 block mb-1">Số tiền hỗ trợ/ngày</label>
+                                    <input type="text" class="form-input hospital-support-stbh" placeholder="VD: 300.000">
+                                    <p class="hospital-support-validation text-sm text-gray-500 mt-1"></p>
+                                </div>
+                                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="product-section bhn-section hidden">
-                    <label class="flex items-center space-x-3 cursor-pointer">
-                        <input type="checkbox" class="form-checkbox bhn-checkbox">
-                        <span class="text-lg font-medium text-gray-800">Bệnh Hiểm Nghèo 2.0</span>
-                    </label>
-                    <div class="product-options hidden mt-3 pl-8 space-y-4 border-l-2 border-gray-200">
-                        <div>
-                            <label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm</label>
-                            <input type="text" class="form-input bhn-stbh" placeholder="VD: 200.000.000">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
                 <!-- NĐBH Bổ sung -->
-                 <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                     <h2 class="text-xl font-bold text-aia-red mb-4">4. Người Được Bảo Hiểm Bổ Sung</h2>
                     <div id="supplementary-insured-container" class="space-y-6"></div>
                     <button id="add-supp-insured-btn" class="mt-4 px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors w-full text-left flex items-center space-x-2">
-                         <span>+ Thêm Người Được Bảo Hiểm Bổ Sung</span>
+                        <span>+ Thêm Người Được Bảo Hiểm Bổ Sung</span>
                     </button>
                 </div>
             </div>
@@ -159,7 +191,7 @@
                     <div class="mt-6 space-y-4">
                         <div>
                             <label for="target-age-input" class="font-medium text-gray-700 block mb-1">Minh họa phí đến năm (tuổi NĐBH chính)</label>
-                            <input type="number" id="target-age-input" class="form-input" placeholder="VD: 75">
+                            <input type="number" id="target-age-input" class="form-input" placeholder="VD: 75" min="0">
                         </div>
                         <button id="view-summary-btn" class="w-full bg-aia-red text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition-colors">Xem Bảng Minh Họa Chi Tiết</button>
                     </div>

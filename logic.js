@@ -74,24 +74,28 @@ function initPerson(container, personId, isSupp = false) {
                 outpatientCheckbox.checked = false;
                 dentalCheckbox.checked = false;
             }
+            calculateAll();
         };
 
         const handleMainCheckboxChange = () => {
             const isChecked = mainCheckbox.checked;
             programSelect.disabled = !isChecked;
             scopeSelect.disabled = !isChecked;
-
+            const options = sclSection.querySelector('.product-options');
+            options.classList.toggle('hidden', !isChecked);
             if (!isChecked) {
                 programSelect.value = '';
+                outpatientCheckbox.checked = false;
+                dentalCheckbox.checked = false;
             }
             handleProgramChange();
+            calculateAll();
         };
 
         programSelect.addEventListener('change', handleProgramChange);
         mainCheckbox.addEventListener('change', handleMainCheckboxChange);
     }
 }
-
 function initMainProductLogic() {
     document.getElementById('main-product').addEventListener('change', calculateAll);
 }

@@ -466,7 +466,9 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
             programSelect.disabled = false;
             programSelect.querySelectorAll('option').forEach(opt => {
                 if (opt.value === '') return;
-                if (mainPremium >= 15000000) {
+                if (mainProduct === 'TRON_TAM_AN') {
+                    opt.disabled = false; // Cho phép tất cả chương trình cho Trọn Tâm An
+                } else if (mainPremium >= 15000000) {
                     opt.disabled = false;
                 } else if (mainPremium >= 10000000) {
                     opt.disabled = !['co_ban', 'nang_cao', 'toan_dien'].includes(opt.value);
@@ -477,7 +479,7 @@ function updateSupplementaryProductVisibility(customer, mainPremium, container) 
                 }
             });
             if (programSelect.options[programSelect.selectedIndex]?.disabled) {
-                programSelect.value = mainPremium >= 5000000 ? 'co_ban' : '';
+                programSelect.value = (mainProduct === 'TRON_TAM_AN' || mainPremium >= 5000000) ? 'co_ban' : '';
             }
         }
     };

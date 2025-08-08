@@ -1492,4 +1492,226 @@ function calculateAdjustedPremium(mode, premiums) {
 
     return { perPeriod, totalYear, diff };
 }
-            
+            throw new Error(`Tổng số tiền Hỗ trợ viện phí vượt quá hạn mức chung: ${formatCurrency(totalMaxSupport, 'đ/ngày')}.`);
+        }
+
+        tableHtml += `
+            <tr>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${contractYear}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: center;">${currentAgeMain}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(mainPremiumForYear)}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(additionalForYear)}</td>
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(suppPremiumMain)}</td>
+                ${suppPremiums.map(suppPremium => `<td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(suppPremium)}</td>`).join('')}
+                <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right; font-weight: 600;">${formatCurrency(mainPremiumForYear + additionalForYear + suppPremiumMain + suppPremiums.reduce((sum, p) => sum + p, 0))}</td>
+            </tr>
+        `;
+    }
+
+    tableHtml += `
+        <tr style="background-color: #e5e7eb; font-weight: bold;">
+            <td style="padding: 8px; border: 1px solid #d1d5db;" colspan="2">Tổng cộng</td>
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalMainAcc)}</td>
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalAdditionalAcc)}</td>
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalSuppAccMain)}</td>
+            ${suppPersons.map((_, index) => {
+                const totalSupp = suppPersons[index].container.querySelector('.supplementary-products-container') ? 
+                    Array.from({ length: targetAge - mainPersonInfo.age + 1 }).reduce((sum, _, i) => {
+                        const currentPersonAge = suppPersons[index].age + i;
+                        let suppPremium = 0;
+                        let totalHospitalSupportStbh = 0; // Reset tổng STBH viện phí mỗi người
+                        const suppContainer = suppPersons[index].container.querySelector('.supplementary-products-container');
+                        if (suppContainer) {
+                            suppPremium += calculateHealthSclPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                            suppPremium += calculateBhnPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                            suppPremium += calculateAccidentPremium({ ...suppPersons[index], age: currentPersonAge }, suppContainer, currentPersonAge);
+                            suppPremium += calculateHospitalSupportPremium({ ...suppPersons[index], age: currentPersonAge }, initialMainPremium, suppContainer, totalHospitalSupportStbh, currentPersonAge);
+                            const hospitalSupportStbh = parseFormattedNumber(suppContainer.querySelector('.hospital-support-stbh')?.value || '0');
+                            if (suppContainer.querySelector('.hospital-support-checkbox')?.checked && hospitalSupportStbh > 0) {
+                                totalHospitalSupportStbh += hospitalSupportStbh;
+                            }
+                        }
+                        return sum + suppPremium;
+                    }, 0) : 0;
+                return `<td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalSupp)}</td>`;
+            }).join('')}
+            <td style="padding: 8px; border: 1px solid #d1d5db; text-align: right;">${formatCurrency(totalMainAcc + totalAdditionalAcc + totalSuppAccMain + totalSuppAccAll)}</td>
+        </tr>
+    </tbody></table>`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng Minh Họa Phí Bảo Hiểm</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { text-align: center; color: #1f2937; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 8px; border: 1px solid #d1d5db; }
+        th { background-color: #f3f4f6; }
+        tr:nth-child(even) { background-color: #f9fafb; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Bảng Minh Họa Phí Bảo Hiểm</h1>
+    ${tableHtml}
+    <div style="margin-top: 20px; text-align: center;" class="no-print">
+        <button onclick="window.print()" style="background-color: #3b82f6; color: white; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer;">In thành PDF</button>
+    </div>
+</body>
+</html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bang_minh_hoa_phi_bao_hiem.html';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function formatCurrency(value, suffix = ' VNĐ') {
+    if (isNaN(value)) return '0' + suffix;
+    return Math.round(value).toLocaleString('vi-VN') + suffix;
+}
+
+function formatNumberInput(input) {
+    if(!input || !input.value) return;
+    let value = input.value.replace(/[.,]/g, '');
+    if (!isNaN(value) && value.length > 0) {
+        input.value = parseInt(value, 10).toLocaleString('vi-VN');
+    } else if (input.value !== '') {
+        input.value = '';
+    }
+}
+
+function parseFormattedNumber(formattedString) {
+    return parseInt(String(formattedString).replace(/[.,]/g, ''), 10) || 0;
+}
+
+function showError(message) {
+    document.getElementById('error-message').textContent = message;
+}
+
+function clearError() {
+    document.getElementById('error-message').textContent = '';
+}
+
+function generateSupplementaryPersonHtml(personId, count) {
+    return `
+        <button class="w-full text-right text-sm text-red-600 font-semibold" onclick="this.closest('.person-container').remove(); calculateAll();">Xóa NĐBH này</button>
+        <h3 class="text-lg font-bold text-gray-700 mb-2 border-t pt-4">NĐBH Bổ Sung ${count}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="name-${personId}" class="font-medium text-gray-700 block mb-1">Họ và Tên</label>
+                <input type="text" id="name-${personId}" class="form-input name-input" placeholder="Trần Thị B">
+            </div>
+            <div>
+                <label for="dob-${personId}" class="font-medium text-gray-700 block mb-1">Ngày sinh</label>
+                <input type="text" id="dob-${personId}" class="form-input dob-input" placeholder="DD/MM/YYYY">
+            </div>
+            <div>
+                <label for="gender-${personId}" class="font-medium text-gray-700 block mb-1">Giới tính</label>
+                <select id="gender-${personId}" class="form-select gender-select">
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
+                </select>
+            </div>
+            <div class="flex items-end space-x-4">
+                <p class="text-lg">Tuổi: <span id="age-${personId}" class="font-bold text-aia-red age-span">0</span></p>
+            </div>
+            <div class="relative">
+                <label for="occupation-input-${personId}" class="font-medium text-gray-700 block mb-1">Nghề nghiệp</label>
+                <input type="text" id="occupation-input-${personId}" class="form-input occupation-input" placeholder="Gõ để tìm nghề nghiệp...">
+                <div class="occupation-autocomplete absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden max-h-60 overflow-y-auto"></div>
+            </div>
+            <div class="flex items-end space-x-4">
+                <p class="text-lg">Nhóm nghề: <span id="risk-group-${personId}" class="font-bold text-aia-red risk-group-span">...</span></p>
+            </div>
+        </div>
+        <div class="mt-4">
+            <h4 class="text-md font-semibold text-gray-800 mb-2">Sản phẩm bổ sung cho người này</h4>
+            <div class="supplementary-products-container space-y-6"></div>
+        </div>
+    `;
+}
+
+function generateSupplementaryProductsHtml(personId) {
+    return `
+        <div class="product-section health-scl-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox health-scl-checkbox">
+                <span class="text-lg font-medium text-gray-800">Sức khỏe Bùng Gia Lực</span>
+            </label>
+            <div class="product-options hidden mt-3 pl-8 space-y-4 border-l-2 border-gray-200">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="font-medium text-gray-700 block mb-1">Quyền lợi chính (Bắt buộc)</label>
+                        <select class="form-select health-scl-program" disabled>
+                            <option value="">-- Chọn chương trình --</option>
+                            <option value="co_ban">Cơ bản</option> <option value="nang_cao">Nâng cao</option> <option value="toan_dien">Toàn diện</option> <option value="hoan_hao">Hoàn hảo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="font-medium text-gray-700 block mb-1">Phạm vi địa lý</label>
+                        <select class="form-select health-scl-scope" disabled>
+                            <option value="main_vn">Việt Nam</option> <option value="main_global">Toàn cầu (trừ Hoa Kỳ)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700 block mb-2">Quyền lợi tùy chọn:</span>
+                    <div class="space-y-2">
+                        <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" class="form-checkbox health-scl-outpatient" disabled> <span>Điều trị ngoại trú</span></label>
+                        <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" class="form-checkbox health-scl-dental" disabled> <span>Chăm sóc nha khoa</span></label>
+                    </div>
+                </div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+            </div>
+        </div>
+        <div class="product-section bhn-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox bhn-checkbox"> <span class="text-lg font-medium text-gray-800">Bảo hiểm Bệnh Hiểm Nghèo 2.0</span>
+            </label>
+            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                <div><label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label><input type="text" class="form-input bhn-stbh" placeholder="VD: 500.000.000"></div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+            </div>
+        </div>
+        <div class="product-section accident-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox accident-checkbox"> <span class="text-lg font-medium text-gray-800">Bảo hiểm Tai nạn</span>
+            </label>
+            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                <div><label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label><input type="text" class="form-input accident-stbh" placeholder="VD: 200.000.000"></div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+            </div>
+        </div>
+        <div class="product-section hospital-support-section hidden">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" class="form-checkbox hospital-support-checkbox"> <span class="text-lg font-medium text-gray-800">Hỗ trợ chi phí nằm viện</span>
+            </label>
+            <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
+                <div>
+                    <label class="font-medium text-gray-700 block mb-1">Số tiền hỗ trợ/ngày</label><input type="text" class="form-input hospital-support-stbh" placeholder="VD: 300.000">
+                    <p class="hospital-support-validation text-sm text-gray-500 mt-1"></p>
+                </div>
+                <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
+            </div>
+        </div>
+    `;
+}
+

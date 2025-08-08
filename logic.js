@@ -1492,7 +1492,7 @@ function calculateAdjustedPremium(mode, premiums) {
 
     return { perPeriod, totalYear, diff };
 }
-            throw new Error(`Tổng số tiền Hỗ trợ viện phí vượt quá hạn mức chung: ${formatCurrency(totalMaxSupport, 'đ/ngày')}.`);
+                        throw new Error(`Tổng số tiền Hỗ trợ viện phí vượt quá hạn mức chung: ${formatCurrency(totalMaxSupport, 'đ/ngày')}.`);
         }
 
         tableHtml += `
@@ -1715,3 +1715,100 @@ function generateSupplementaryProductsHtml(personId) {
     `;
 }
 
+// Hàm mới cho Yêu cầu 2 (generate radio list)
+function generateFreePremiumPersonOptions() {
+    let options = '';
+    // Loop suppPersons để tạo radio
+    // Giả sử suppPersons là global hoặc lấy từ DOM; adjust nếu cần
+    suppPersons.forEach(person => {
+        options += `<label><input type="radio" name="free-premium-person" class="free-premium-radio" value="${person.name}"> ${person.name}</label>`;
+    });
+    options += `<label><input type="radio" name="free-premium-person" class="free-premium-radio" value="other"> Người khác</label>`;
+    return options;
+}
+
+// Hàm mới cho Yêu cầu 2 (tính phí miễn đóng phí)
+function calculateFreePremium(mainPersonInfo, totalSupplementaryPremium) {
+    if (!freePremiumProduct.enabled) return 0;
+
+    // Tính STBH
+    let stbh = mainPremium + additionalPremium + totalSupplementaryPremium;
+    if (freePremiumProduct.selectedPerson !== 'other') {
+        // Trừ phí bổ sung của selected
+        const selectedSupp = suppPersons.find(p => p.name === freePremiumProduct.selectedPerson);
+        if (selectedSupp) {
+            stbh -= calculatePersonSuppPremium(selectedSupp); // Hàm phụ để tính phí bổ sung của 1 person
+        }
+    }
+
+    // Validation tuổi
+    const selectedAge = freePremiumProduct.selectedPerson === 'other' ? freePremiumProduct.otherPerson.age : suppPersons.find(p => p.name === freePremiumProduct.selectedPerson)?.age || mainPersonInfo.age;
+    if (selectedAge < 18 || selectedAge > 60) {
+        throw new Error('Tuổi người được chọn phải từ 18 đến 60.');
+    }
+
+    // Tính phí (placeholder, cần bảng phí từ bạn)
+    const rate = product_data.free_premium_rates?.find(r => r.age === selectedAge && r.gender === mainPersonInfo.gender)?.rate || 0;
+    const fee = (stbh / 1000) * rate;
+    freePremiumProduct.stbh = stbh;
+    return fee;
+}
+
+// Hàm phụ cho Yêu cầu 2 (tính phí bổ sung của 1 person)
+function calculatePersonSuppPremium(person) {
+    const suppContainer = person.container.querySelector('.supplementary-products-container');
+    let premium = 0;
+    premium += calculateHealthSclPremium(person, suppContainer);
+    premium += calculateBhnPremium(person, suppContainer);
+    premium += calculateAccidentPremium(person, suppContainer);
+    premium += calculateHospitalSupportPremium(person, mainPremium, suppContainer);
+    return premium;
+}
+
+// Hàm mới cho Yêu cầu 4 (show error dưới input)
+function showInputError(input, message) {
+    const errorEl = input.nextElementSibling.nextElementSibling; // Giả sử .error-text là sibling thứ 2
+    if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.classList.remove('hidden');
+    }
+}
+
+function clearInputError(input) {
+    const errorEl = input.nextElementSibling.nextElementSibling;
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+    }
+}
+
+// Hàm mới cho Yêu cầu 6 (tính adjusted premium)
+function calculateAdjustedPremium(mode, premiums) {
+    const main = premiums.mainPremium || 0;
+    const additional = premiums.additionalPremium || 0;
+    const supp = premiums.totalSupplementaryPremium || 0;
+
+    let perPeriod = 0;
+    let totalYear = 0;
+    let diff = 0;
+
+    if (mode === 'half') {
+        const mainAdditionalPer = (main + additional) / 2;
+        const suppPer = Math.round((supp / 1000 * 1.02 / 2)) * 1000;
+        perPeriod = mainAdditionalPer + suppPer;
+        totalYear = perPeriod * 2;
+        diff = totalYear - (main + additional + supp);
+    } else if (mode === 'quarter') {
+        const mainAdditionalPer = (main + additional) / 4;
+        const suppPer = Math.round((supp / 1000 * 1.04 / 4)) * 1000;
+        perPeriod = mainAdditionalPer + suppPer;
+        totalYear = perPeriod * 4;
+        diff = totalYear - (main + additional + supp);
+    } else {
+        perPeriod = main + additional + supp;
+        totalYear = perPeriod;
+        diff = 0;
+    }
+
+    return { perPeriod, totalYear, diff };
+}

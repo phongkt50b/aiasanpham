@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     attachGlobalListeners();
     calculateAll();
+reInitAllDob(); // Thêm
+reInitAllOccupation(); // Thêm
 });
 
 function attachGlobalListeners() {
@@ -1420,4 +1422,16 @@ function generateSupplementaryProductsHtml(personId) {
             </div>
         </div>
     `;
+}
+// Hàm mới để re-init all DOB inputs (fix DOB không thêm /)
+function reInitAllDob() {
+    document.querySelectorAll('.dob-input').forEach(input => initDateFormatter(input));
+}
+
+// Hàm mới để re-init all Occupation inputs (fix occupation không show autocomplete)
+function reInitAllOccupation() {
+    document.querySelectorAll('.occupation-input').forEach(input => {
+        const container = input.closest('.person-container') || document.getElementById('main-person-container');
+        initOccupationAutocomplete(input, container);
+    });
 }

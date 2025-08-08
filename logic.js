@@ -244,13 +244,13 @@ function updateTargetAge() {
 function initDateFormatter(input) {
     if (!input) return;
     input.addEventListener('input', (e) => {
-        let value = e.target.value.replace(/\D/g, '');
+        let value = e.target.value.replace(/\D/g, ''); // Loại bỏ ký tự không phải số
         if (value.length > 2) value = value.slice(0, 2) + '/' + value.slice(2);
         if (value.length > 5) value = value.slice(0, 5) + '/' + value.slice(5, 9);
-        e.target.value = value.slice(0, 10);
+        e.target.value = value.slice(0, 10); // Giới hạn 10 ký tự (DD/MM/YYYY)
+        calculateAll(); // Cập nhật lại tính toán
     });
 }
-
 function initOccupationAutocomplete(input, container) {
     if (!input) return;
     const autocompleteContainer = container.querySelector('.occupation-autocomplete');
@@ -263,14 +263,11 @@ function initOccupationAutocomplete(input, container) {
             autocompleteContainer.classList.add('hidden');
             return;
         }
-
-        const filtered = product_data.occupations
-            .filter(o => o.group > 0 && o.name.toLowerCase().includes(value));
-
+        const filtered = product_data.occupations.filter(o => o.group > 0 && o.name.toLowerCase().includes(value));
         if (filtered.length > 0) {
             filtered.forEach(occ => {
                 const item = document.createElement('div');
-                item.className = 'autocomplete-item';
+                item.className = 'autocomplete-item p-2 hover:bg-gray-200 cursor-pointer';
                 item.textContent = occ.name;
                 item.addEventListener('click', () => {
                     input.value = occ.name;
@@ -293,7 +290,6 @@ function initOccupationAutocomplete(input, container) {
         }
     });
 }
-
 function getCustomerInfo(container, isMain = false) {
     const dobInput = container.querySelector('.dob-input');
     const genderSelect = container.querySelector('.gender-select');

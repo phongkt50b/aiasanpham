@@ -1425,11 +1425,3 @@ function generateSupplementaryProductsHtml(personId) {
         </div>
     `;
 }
-
-</xaiArtifact>
-
-### Lưu ý
-- Mình đã tiếp tục từ đoạn bị dừng và hoàn thành toàn bộ `logic.js`.
-- Các thay đổi đã được tích hợp theo yêu cầu, bao gồm Sức Khỏe Bùng Gia Lực mặc định "Nâng cao", sản phẩm Miễn Đóng Phí, phí đóng thêm, thông báo lỗi, PUL Trọn Đời mặc định 10 năm, tóm tắt phí với kỳ đóng phí, tóm tắt sản phẩm, miễn trừ trách nhiệm, và placeholder cho logo (sẽ thêm vào `index.html` khi bạn cung cấp).
-- Về bảng phí Miễn Đóng Phí, mình đã dùng rate tạm 0.01 trong `calculateWaiverPremium` (chờ bạn cung cấp dữ liệu thực tế).
-- Vui lòng kiểm tra và gửi thêm `data.js` hoặc logo nếu có. Nếu cần điều chỉnh, cứ báo nhé!

@@ -13,14 +13,14 @@
 <body class="bg-gray-50 font-sans text-gray-800">
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         <header class="flex items-center justify-between pb-6 border-b-2 border-red-600 mb-6">
-            <img src="new-logo.png" alt="Logo Mới" class="h-8">
+            <img src="https://www.aia.com.vn/content/dam/group-wise/images/system/icons/aia-logo-red.svg" alt="AIA Logo" class="h-8">
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 text-right">Công Cụ Minh Họa Phí Bảo Hiểm</h1>
         </header>
 
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2 space-y-6">
                 
-                <div id="main-person-container" class="person-container space-y-6">
+                <div id="main-person-container" class="person-container space-y-6" data-person-id="main">
                     <!-- Thông tin người được bảo hiểm chính -->
                     <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                         <h2 class="text-xl font-bold text-aia-red mb-4">1. Thông Tin Người Được Bảo Hiểm Chính</h2>
@@ -32,8 +32,6 @@
                             <div>
                                 <label for="dob-main" class="font-medium text-gray-700 block mb-1">Ngày sinh</label>
                                 <input type="text" id="dob-main" class="form-input dob-input" placeholder="DD/MM/YYYY">
-                                <p class="guide">Định dạng: DD/MM/YYYY</p>
-                                <p class="error-text hidden">Ngày sinh không hợp lệ. Vui lòng nhập lại theo định dạng DD/MM/YYYY.</p>
                             </div>
                             <div>
                                 <label for="gender-main" class="font-medium text-gray-700 block mb-1">Giới tính</label>
@@ -49,8 +47,6 @@
                                 <label for="occupation-input-main" class="font-medium text-gray-700 block mb-1">Nghề nghiệp</label>
                                 <input type="text" id="occupation-input-main" class="form-input occupation-input" placeholder="Gõ để tìm nghề nghiệp...">
                                 <div class="occupation-autocomplete absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden max-h-60 overflow-y-auto"></div>
-                                <p class="guide">Gõ ít nhất 2 ký tự để tìm nghề nghiệp.</p>
-                                <p class="error-text hidden">Nghề nghiệp không hợp lệ. Vui lòng chọn từ danh sách.</p>
                             </div>
                             <div class="flex items-end space-x-4">
                                 <p class="text-lg">Nhóm nghề: <span id="risk-group-main" class="font-bold text-aia-red risk-group-span">...</span></p>
@@ -132,8 +128,6 @@
                                 <div>
                                     <label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label>
                                     <input type="text" class="form-input bhn-stbh" placeholder="VD: 200.000.000">
-                                    <p class="guide">VD: 500.000.000, tối đa 5.000.000.000. Nhập số nguyên.</p>
-                                    <p class="error-text hidden">STBH không hợp lệ. Vui lòng nhập lại (tối đa 5.000.000.000).</p>
                                 </div>
                                 <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
                             </div>
@@ -147,8 +141,6 @@
                                 <div>
                                     <label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label>
                                     <input type="text" class="form-input accident-stbh" placeholder="VD: 200.000.000">
-                                    <p class="guide">VD: 200.000.000, tối đa 8.000.000.000. Nhập số nguyên.</p>
-                                    <p class="error-text hidden">STBH không hợp lệ. Vui lòng nhập lại (tối đa 8.000.000.000).</p>
                                 </div>
                                 <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
                             </div>
@@ -163,8 +155,6 @@
                                     <label class="font-medium text-gray-700 block mb-1">Số tiền hỗ trợ/ngày</label>
                                     <input type="text" class="form-input hospital-support-stbh" placeholder="VD: 300.000">
                                     <p class="hospital-support-validation text-sm text-gray-500 mt-1"></p>
-                                    <p class="guide">Phải là bội số của 100.000, tối đa theo phí chính và tuổi.</p>
-                                    <p class="error-text hidden">Số tiền không hợp lệ. Vui lòng nhập bội số của 100.000 và kiểm tra giới hạn.</p>
                                 </div>
                                 <div class="text-right font-semibold text-aia-red fee-display min-h-[1.5rem]"></div>
                             </div>
@@ -191,30 +181,10 @@
                             <span class="text-gray-600">Phí sản phẩm chính:</span>
                             <span id="main-premium-result" class="font-bold text-gray-900">0 VNĐ</span>
                         </div>
-                        <!-- Thêm dòng cho phí đóng thêm (Yêu cầu 3) -->
-                        <div class="flex justify-between items-center py-2 border-b">
-                            <span class="text-gray-600">Phí đóng thêm:</span>
-                            <span id="additional-premium-result" class="font-bold text-gray-900">0 VNĐ</span>
-                        </div>
                         <div id="supplementary-premiums-results"></div>
                         <div class="flex justify-between items-center pt-4 text-xl">
                             <span class="font-semibold text-aia-red">Tổng phí năm đầu:</span>
                             <span id="total-premium-result" class="font-extrabold text-aia-red">0 VNĐ</span>
-                        </div>
-                        <!-- Thêm select payment mode và hiển thị adjusted (Yêu cầu 6) -->
-                        <div class="mt-4">
-                            <label for="payment-mode" class="font-medium text-gray-700 block mb-1">Kỳ đóng phí:</label>
-                            <select id="payment-mode" class="form-select">
-                                <option value="year">Theo năm (mặc định)</option>
-                                <option value="half">Nửa năm</option>
-                                <option value="quarter">Theo quý</option>
-                            </select>
-                            <div id="adjusted-premium-display" class="mt-2 text-sm text-gray-600">
-                                <!-- Placeholder cho hiển thị: Tổng theo kỳ, tổng năm, chênh lệch (cập nhật qua JS) -->
-                                <p>Tổng phí theo kỳ: 0 VNĐ</p>
-                                <p>Tổng phải đóng trong năm: 0 VNĐ</p>
-                                <p>Chênh lệch so với đóng năm: +0 VNĐ</p>
-                            </div>
                         </div>
                     </div>
                     
@@ -234,9 +204,6 @@
         <footer class="text-center text-gray-500 mt-12 py-4 border-t">
             © 2025 Bản quyền thuộc về Tập đoàn AIA (AIA Group Limited) | Công cụ chỉ mang tính chất minh họa.
         </footer>
-
-        <!-- Thêm phần miễn trừ trách nhiệm ở cuối trang (Yêu cầu 9) -->
-        <p class="disclaimer">Công cụ này chỉ mang tính chất tham khảo cá nhân, không phải là bảng minh họa chính thức của AIA. Quyền lợi và mức phí cụ thể sẽ được xác nhận trong hợp đồng do AIA phát hành. Vui lòng liên hệ tư vấn viên AIA để được tư vấn chi tiết và nhận bảng minh họa chính thức</p>
     </div>
 
     <div id="summary-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-4 z-50">
@@ -247,12 +214,10 @@
             </div>
             <div id="summary-content-container" class="p-6 overflow-y-auto">
             </div>
-            <!-- Thêm phần miễn trừ trách nhiệm trong modal (Yêu cầu 9) -->
-            <p class="disclaimer">Công cụ này chỉ mang tính chất tham khảo cá nhân, không phải là bảng minh họa chính thức của AIA. Quyền lợi và mức phí cụ thể sẽ được xác nhận trong hợp đồng do AIA phát hành. Vui lòng liên hệ tư vấn viên AIA để được tư vấn chi tiết và nhận bảng minh họa chính thức</p>
         </div>
     </div>
 
-    <script type="module" src="logic.js"></script>
     <script type="module" src="data.js"></script>
+    <script type="module" src="logic.js"></script>
 </body>
 </html>

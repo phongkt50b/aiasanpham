@@ -48,7 +48,6 @@ body {
     box-shadow: 0 0 0 2px rgba(217, 35, 45, 0.2);
 }
 
-
 .product-section.hidden, .hidden {
     display: none;
 }
@@ -98,4 +97,87 @@ input:disabled, select:disabled, .disabled {
 }
 .bg-aia-red {
     background-color: #e30613;
+}
+
+/* Thêm định dạng cho input phí đóng thêm */
+#additional-premium-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    background-color: #fff;
+}
+
+#additional-premium-input:focus {
+    outline: none;
+    border-color: var(--aia-red);
+    box-shadow: 0 0 0 2px rgba(217, 35, 45, 0.2);
+}
+
+/* Thêm định dạng cho thông báo lỗi và hướng dẫn */
+.error-message {
+    display: block;
+    color: #dc2626; /* Màu đỏ cho lỗi */
+    font-size: 0.875rem; /* Nhỏ hơn text chính */
+    margin-top: 0.25rem;
+}
+
+.input-guide {
+    display: block;
+    color: #6b7280; /* Màu xám cho hướng dẫn */
+    font-size: 0.875rem; /* Nhỏ hơn text chính */
+    margin-top: 0.25rem;
+}
+
+/* Thêm định dạng cho section Miễn Đóng Phí */
+#waiver-section {
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+}
+
+/* Thêm định dạng cho dropdown và form trong Miễn Đóng Phí */
+#waiver-section .form-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+}
+
+#waiver-section .person-container {
+    margin-top: 1rem;
+}
+
+/* Thêm định dạng cho tóm tắt sản phẩm trong bảng minh họa */
+.summary-products {
+    font-weight: bold;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+/* Thêm định dạng cho disclaimer */
+.disclaimer {
+    font-weight: bold;
+    font-size: 0.875rem; /* Chữ không quá nhỏ */
+    color: #374151; /* Màu xám đậm */
+    margin-top: 2rem;
+    padding: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Thêm định dạng cho chênh lệch phí trong tóm tắt */
+.premium-difference {
+    color: #3b82f6; /* Màu xanh dương nổi bật */
+    font-weight: bold;
+    margin-left: 0.5rem;
+}
+
+/* Thêm định dạng cho logo mới (chờ file logo) */
+#new-logo {
+    max-width: 150px; /* Giá trị tạm, điều chỉnh khi có logo */
+    height: auto;
 }

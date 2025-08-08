@@ -48,6 +48,7 @@ body {
     box-shadow: 0 0 0 2px rgba(217, 35, 45, 0.2);
 }
 
+
 .product-section.hidden, .hidden {
     display: none;
 }
@@ -99,85 +100,26 @@ input:disabled, select:disabled, .disabled {
     background-color: #e30613;
 }
 
-/* Thêm định dạng cho input phí đóng thêm */
-#additional-premium-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    background-color: #fff;
+/* Các style mới thêm cho yêu cầu (không ảnh hưởng code gốc) */
+
+/* Yêu cầu 4: Style cho lỗi dưới input */
+.error-text {
+    color: red;
+    font-size: 12px;
+    margin-top: 4px;
 }
 
-#additional-premium-input:focus {
-    outline: none;
-    border-color: var(--aia-red);
-    box-shadow: 0 0 0 2px rgba(217, 35, 45, 0.2);
+/* Yêu cầu 4: Style cho hướng dẫn dưới input */
+.guide {
+    color: gray;
+    font-size: 12px;
+    margin-top: 4px;
 }
 
-/* Thêm định dạng cho thông báo lỗi và hướng dẫn */
-.error-message {
-    display: block;
-    color: #dc2626; /* Màu đỏ cho lỗi */
-    font-size: 0.875rem; /* Nhỏ hơn text chính */
-    margin-top: 0.25rem;
-}
-
-.input-guide {
-    display: block;
-    color: #6b7280; /* Màu xám cho hướng dẫn */
-    font-size: 0.875rem; /* Nhỏ hơn text chính */
-    margin-top: 0.25rem;
-}
-
-/* Thêm định dạng cho section Miễn Đóng Phí */
-#waiver-section {
-    padding: 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    margin-top: 1rem;
-}
-
-/* Thêm định dạng cho dropdown và form trong Miễn Đóng Phí */
-#waiver-section .form-select {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #d1d5db;
-    border-radius: 0.5rem;
-}
-
-#waiver-section .person-container {
-    margin-top: 1rem;
-}
-
-/* Thêm định dạng cho tóm tắt sản phẩm trong bảng minh họa */
-.summary-products {
-    font-weight: bold;
-    margin-bottom: 1rem;
-    padding: 0.5rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-}
-
-/* Thêm định dạng cho disclaimer */
+/* Yêu cầu 9: Style cho phần miễn trừ trách nhiệm (in đậm, không quá nhỏ) */
 .disclaimer {
     font-weight: bold;
-    font-size: 0.875rem; /* Chữ không quá nhỏ */
-    color: #374151; /* Màu xám đậm */
-    margin-top: 2rem;
-    padding: 1rem;
-    border-top: 1px solid #e5e7eb;
-}
-
-/* Thêm định dạng cho chênh lệch phí trong tóm tắt */
-.premium-difference {
-    color: #3b82f6; /* Màu xanh dương nổi bật */
-    font-weight: bold;
-    margin-left: 0.5rem;
-}
-
-/* Thêm định dạng cho logo mới (chờ file logo) */
-#new-logo {
-    max-width: 150px; /* Giá trị tạm, điều chỉnh khi có logo */
-    height: auto;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 20px;
 }

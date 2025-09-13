@@ -8,6 +8,8 @@ const CONFIG = {
     MAX_SUPPLEMENTARY_INSURED: 10,
     MAIN_PRODUCT_MIN_PREMIUM: 5000000,
     MAIN_PRODUCT_MIN_STBH: 100000000,
+    PUL_MIN_PREMIUM_OR: 5000000,
+    PUL_MIN_STBH_OR: 100000000,
     EXTRA_PREMIUM_MAX_FACTOR: 5,
     PAYMENT_FREQUENCY_THRESHOLDS: {
         half: 7000000,
@@ -400,6 +402,40 @@ function calculateHealthSclPremium(customer, mainPremium, totalHospitalSupportSt
 
     return roundDownTo1000(totalPremium);
 }
+// Tách phí từng phần của Sức khỏe Bùng Gia Lực
+function getHealthSclFeeComponents(customer, ageOverride = null) {
+  try {
+    if (!customer || !customer.supplements || !customer.supplements.health_scl) {
+      return { base:0, outpatient:0, dental:0, total:0 };
+    }
+    const ageToUse = ageOverride ?? customer.age;
+    const { program, scope, outpatient, dental } = customer.supplements.health_scl;
+    if (!program || !scope) return { base:0, outpatient:0, dental:0, total:0 };
+
+    const ageBandIndex = product_data.health_scl_rates.age_bands.findIndex(
+      b => ageToUse >= b.min && ageToUse <= b.max
+    );
+    if (ageBandIndex === -1) return { base:0, outpatient:0, dental:0, total:0 };
+
+    const base = product_data.health_scl_rates[scope]?.[ageBandIndex]?.[program] || 0;
+    const outpatientFee = outpatient
+        ? (product_data.health_scl_rates.outpatient?.[ageBandIndex]?.[program] || 0)
+        : 0;
+    const dentalFee = dental
+        ? (product_data.health_scl_rates.dental?.[ageBandIndex]?.[program] || 0)
+        : 0;
+
+    const total = base + outpatientFee + dentalFee;
+    return {
+      base: roundDownTo1000(base),
+      outpatient: roundDownTo1000(outpatientFee),
+      dental: roundDownTo1000(dentalFee),
+      total: roundDownTo1000(total)
+    };
+  } catch(e){
+    return { base:0, outpatient:0, dental:0, total:0 };
+  }
+}
 
 function calculateBhnPremium(customer, mainPremium, totalHospitalSupportStbh, ageOverride = null) {
     const ageToUse = ageOverride ?? customer.age;
@@ -625,7 +661,6 @@ function renderMainProductSection(customer, mainProductKey) {
     }
     attachTermListenersForTargetAge();
 }
-
 function renderSupplementaryProductsForPerson(customer, mainProductKey, mainPremium, container) {
     const { age, riskGroup, daysFromBirth } = customer;
     
@@ -639,9 +674,34 @@ function renderSupplementaryProductsForPerson(customer, mainProductKey, mainPrem
         'TRON_TAM_AN'
     ].includes(mainProductKey);
     const isTTA = mainProductKey === 'TRON_TAM_AN';
+    const isPul = ['PUL_TRON_DOI','PUL_5NAM','PUL_15NAM'].includes(mainProductKey);
 
-    // Dưới ngưỡng: khóa riders. (Nếu muốn chỉ khóa khi >0 mà vẫn < ngưỡng, đổi dòng dưới thành: const belowMin = mainPremium > 0 && mainPremium < CONFIG.MAIN_PRODUCT_MIN_PREMIUM;)
-    const belowMin = !isTTA && (mainPremium < CONFIG.MAIN_PRODUCT_MIN_PREMIUM);
+    let ridersDisabled = false;
+    let ridersReason = '';
+
+    if (!isTTA && isPul) {
+        const mainStbhMin    = CONFIG.MAIN_PRODUCT_MIN_STBH || 0;
+        const pulStbhMin     = CONFIG.PUL_MIN_STBH_OR || mainStbhMin;
+        const pulPremiumMin  = CONFIG.PUL_MIN_PREMIUM_OR || 0;
+        const mainPremiumMin = CONFIG.MAIN_PRODUCT_MIN_PREMIUM || 0;
+        const curStbh = appState.mainProduct.stbh || 0;
+
+        if (curStbh > 0 && curStbh < mainStbhMin) {
+            ridersDisabled = true;
+            ridersReason = `Cần STBH ≥ ${mainStbhMin.toLocaleString('vi-VN')} đ (hiện tại: ${curStbh.toLocaleString('vi-VN')} đ)`;
+        } else if (curStbh >= mainStbhMin && curStbh < pulStbhMin) {
+            if (mainPremium > 0 && mainPremium < pulPremiumMin) {
+                ridersDisabled = true;
+                ridersReason = `Cần phí chính ≥ ${pulPremiumMin.toLocaleString('vi-VN')} đ (STBH < ${pulStbhMin.toLocaleString('vi-VN')} đ)`;
+            }
+        } else if (curStbh >= pulStbhMin) {
+            if (mainPremium > 0 && mainPremium < mainPremiumMin) {
+                ridersDisabled = true;
+                ridersReason = `Cần phí chính ≥ ${mainPremiumMin.toLocaleString('vi-VN')} đ`;
+            }
+        }
+    }
+
     let anyUncheckedByThreshold = false;
 
     CONFIG.supplementaryProducts.forEach(prod => {
@@ -663,8 +723,7 @@ function renderSupplementaryProductsForPerson(customer, mainProductKey, mainPrem
             if (checkbox.checked) checkbox.checked = false;
         }
 
-        if (isEligible && belowMin) {
-            // Khóa do chưa đạt ngưỡng phí chính
+        if (isEligible && ridersDisabled) {
             if (checkbox.checked) {
                 checkbox.checked = false;
                 anyUncheckedByThreshold = true;
@@ -673,11 +732,10 @@ function renderSupplementaryProductsForPerson(customer, mainProductKey, mainPrem
             section.classList.add('opacity-50');
             const msgEl = section.querySelector('.main-premium-threshold-msg');
             if (msgEl) {
-                msgEl.textContent = `Cần phí sản phẩm chính ≥ ${CONFIG.MAIN_PRODUCT_MIN_PREMIUM.toLocaleString('vi-VN')} đ (hiện tại: ${mainPremium.toLocaleString('vi-VN')} đ)`;
+                msgEl.textContent = ridersReason;
                 msgEl.classList.remove('hidden');
             }
         } else {
-            // Trạng thái bình thường
             checkbox.disabled = !isEligible;
             section.classList.toggle('opacity-50', !isEligible);
             const msgEl = section.querySelector('.main-premium-threshold-msg');
@@ -687,46 +745,59 @@ function renderSupplementaryProductsForPerson(customer, mainProductKey, mainPrem
             }
         }
 
-        // Hiển thị / ẩn block options
         const options = section.querySelector('.product-options');
         if (options) {
             options.classList.toggle('hidden', !checkbox.checked);
         }
 
-        // Cập nhật hiển thị phí
         const fee = appState.fees.byPerson[customer.id]?.suppDetails?.[prod.id] || 0;
         const feeDisplay = section.querySelector('.fee-display');
         if (feeDisplay) {
             feeDisplay.textContent = fee > 0 ? `Phí: ${formatCurrency(fee)}` : '';
         }
+
+        // === CẬP NHẬT PHÍ TÙY CHỌN CHO SỨC KHỎE BÙNG GIA LỰC ===
+        if (prod.id === 'health_scl' && section.querySelector('.health_scl-checkbox')?.checked) {
+            const comps = getHealthSclFeeComponents(customer);
+            const outpatientCb = section.querySelector('.health-scl-outpatient');
+            const dentalCb = section.querySelector('.health-scl-dental');
+            const outSpan = section.querySelector('.scl-outpatient-fee');
+            const dentalSpan = section.querySelector('.scl-dental-fee');
+
+            if (outSpan) {
+                outSpan.textContent = (outpatientCb && outpatientCb.checked && comps.outpatient > 0)
+                  ? `(+${formatCurrency(comps.outpatient)})`
+                  : '';
+            }
+            if (dentalSpan) {
+                dentalSpan.textContent = (dentalCb && dentalCb.checked && comps.dental > 0)
+                  ? `(+${formatCurrency(comps.dental)})`
+                  : '';
+            }
+        }
     });
 
-    // Nếu có rider bị bỏ chọn do bị khóa bởi ngưỡng → tính lại (debounce để tránh vòng lặp)
     if (anyUncheckedByThreshold && typeof runWorkflowDebounced === 'function') {
         runWorkflowDebounced();
     }
-    
-    // Xử lý riêng Sức khỏe Bùng Gia Lực (chương trình) sau khi đã khóa nếu belowMin
+
+    // Giữ nguyên phần logic SCL nâng cấp chương trình ở dưới
     const sclSection = container.querySelector('.health_scl-section');
     if (sclSection && !sclSection.classList.contains('hidden')) {
         const programSelect = sclSection.querySelector('.health-scl-program');
         const checkbox = sclSection.querySelector('.health_scl-checkbox');
-        if (checkbox && isTTA && !checkbox.checked && !belowMin) {
-            // Với Trọn Tâm An tự bật nếu không bị khóa bởi belowMin
+        if (checkbox && isTTA && !checkbox.checked && !ridersDisabled) {
             checkbox.checked = true;
             sclSection.querySelector('.product-options')?.classList.remove('hidden');
         }
 
-        if (belowMin) {
-            // Đang bị khóa toàn cục: không cần xử lý logic lựa chọn chương trình
+        if (ridersDisabled) {
             return;
         } else if (isTTA) {
-            // TTA: mở toàn bộ option
             Array.from(programSelect.options).forEach(opt => opt.disabled = false);
         } else {
-            // Logic giới hạn chương trình theo premium
             programSelect.querySelectorAll('option').forEach(opt => {
-                if (opt.value === 'nang_cao') return; // luôn giữ nâng_cao không disable
+                if (opt.value === 'nang_cao') return;
                 if (mainPremium >= 15000000) {
                     opt.disabled = false;
                 } else if (mainPremium >= 10000000) {
@@ -741,7 +812,6 @@ function renderSupplementaryProductsForPerson(customer, mainProductKey, mainPrem
                 programSelect.value = '';
             }
 
-            // Hint STBH theo option
             const stbhHintEl = sclSection.querySelector('.health-scl-stbh-hint');
             if (stbhHintEl && programSelect) {
                 const setHint = () => {
@@ -904,29 +974,89 @@ function validateMainProductInputs(customer, productInfo, basePremium) {
     const abuvTermEl = document.getElementById('abuv-term');
 
     // 1) STBH & phí chính ngưỡng tối thiểu (giữ nguyên logic cũ)
-    if (mainProduct && mainProduct !== 'TRON_TAM_AN') {
-        // Bổ sung kiểm tra stbh >= 2 tỷ cho PUL_TRON_DOI, PUL_5NAM, PUL_15NAM
-        if (['PUL_TRON_DOI', 'PUL_5NAM', 'PUL_15NAM'].includes(mainProduct)) {
-            const MIN_STBH = 0; // 2 tỷ khi nào áp dụng thì thay 2 tỷ vào là ok ngày :))
-            if (stbh < MIN_STBH) {
-                setFieldError(stbhEl, `STBH tối thiểu ${formatCurrency(MIN_STBH, '')}`);
+    // ============== PUL: LOGIC TẦNG MỚI ==============
+    if (['PUL_TRON_DOI', 'PUL_5NAM', 'PUL_15NAM'].includes(mainProduct)) {
+        const mainStbhMin      = CONFIG.MAIN_PRODUCT_MIN_STBH || 0;
+        const pulStbhMin       = CONFIG.PUL_MIN_STBH_OR || mainStbhMin;
+        const pulPremiumMin    = CONFIG.PUL_MIN_PREMIUM_OR || 0;
+        const mainPremiumMin   = CONFIG.MAIN_PRODUCT_MIN_PREMIUM || 0;
+    
+        // Reset lỗi trước
+        clearFieldError(stbhEl);
+        const feeInputForPul = stbhEl; // vì không có input phí chính riêng PUL
+    
+        if (stbh > 0 && stbh < mainStbhMin) {
+            // TẦNG 1: STBH chưa đạt min của sản phẩm chính
+            setFieldError(stbhEl, `STBH tối thiểu: ${mainStbhMin.toLocaleString('vi-VN')} đ`);
+            ok = false;
+    
+        } else if (stbh >= mainStbhMin && stbh < pulStbhMin) {
+            // TẦNG 2: STBH đạt min chung nhưng chưa tới min PUL → dùng ngưỡng phí PUL
+            clearFieldError(stbhEl);
+    
+            if (basePremium > 0 && basePremium < pulPremiumMin) {
+                setFieldError(
+                  feeInputForPul,
+                  `Phí tối thiểu: ${pulPremiumMin.toLocaleString('vi-VN')} đ`
+                );
                 ok = false;
+            } else if (basePremium >= pulPremiumMin) {
+                clearFieldError(feeInputForPul);
             } else {
-                clearFieldError(stbhEl);
+                // basePremium == 0 => chưa tính phí, chưa cảnh báo
+            }
+    
+        } else if (stbh >= pulStbhMin) {
+            // TẦNG 3: STBH đã ≥ ngưỡng PUL → dùng ngưỡng phí chung MAIN
+            clearFieldError(stbhEl);
+    
+            if (basePremium > 0 && basePremium < mainPremiumMin) {
+                setFieldError(
+                  feeInputForPul,
+                  `Phí tối thiểu: ${mainPremiumMin.toLocaleString('vi-VN')} đ`
+                );
+                ok = false;
+            } else if (basePremium >= mainPremiumMin) {
+                clearFieldError(feeInputForPul);
+            } else {
+                // basePremium == 0 => chưa tính phí, chưa cảnh báo
             }
         } else {
-            // Kiểm tra stbh tối thiểu theo config cũ
+            // stbh == 0: chưa nhập / chưa tính → không báo lỗi
+            clearFieldError(stbhEl);
+        }
+    
+    } else {
+
+        // (Tùy chọn) ẩn hint nếu không phải PUL:
+        // updatePulHint({ hide: true });
+    
+        // Các sản phẩm KHÁC PUL (trừ Trọn Tâm An có STBH cố định không cần kiểm tra)
+        if (mainProduct && mainProduct !== 'TRON_TAM_AN') {
             if (stbh > 0 && stbh < CONFIG.MAIN_PRODUCT_MIN_STBH) {
-                setFieldError(stbhEl, `STBH tối thiểu ${formatCurrency(CONFIG.MAIN_PRODUCT_MIN_STBH, '')}`);
+                setFieldError(stbhEl, `STBH tối thiểu ${formatCurrency(CONFIG.MAIN_PRODUCT_MIN_STBH,'')}`);
                 ok = false;
             } else {
                 clearFieldError(stbhEl);
             }
         }
-
-        if (basePremium > 0 && basePremium < CONFIG.MAIN_PRODUCT_MIN_PREMIUM) {
-            setFieldError(document.getElementById('main-stbh') || document.getElementById('main-premium-input'), `Phí chính tối thiểu ${formatCurrency(CONFIG.MAIN_PRODUCT_MIN_PREMIUM, '')}`);
-            ok = false;
+    }
+    
+    // Phí chính tối thiểu (không áp dụng cho Trọn Tâm An vì phí tính cố định theo STBH)
+    if (
+        mainProduct &&
+        mainProduct !== 'TRON_TAM_AN' &&
+        basePremium > 0 &&
+        basePremium < CONFIG.MAIN_PRODUCT_MIN_PREMIUM &&
+        !['PUL_TRON_DOI','PUL_5NAM','PUL_15NAM'].includes(mainProduct) // (PUL đã có điều kiện OR riêng ở trên)
+    ) {
+        const feeInput = document.getElementById('main-premium-input') || stbhEl;
+        setFieldError(feeInput, `Phí chính tối thiểu ${formatCurrency(CONFIG.MAIN_PRODUCT_MIN_PREMIUM,'')}`);
+        ok = false;
+    } else {
+        const feeInput = document.getElementById('main-premium-input');
+        if (feeInput && !['PUL_TRON_DOI','PUL_5NAM','PUL_15NAM'].includes(mainProduct)) {
+            clearFieldError(feeInput);
         }
     }
     // 2) Kiểm tra thời hạn đóng phí theo từng sản phẩm
@@ -1279,7 +1409,6 @@ function updateSupplementaryAddButtonState() {
     btn.classList.toggle('cursor-not-allowed', disabled);
     btn.classList.toggle('hidden', isTTA);
 }
-
 function generateSupplementaryProductsHtml() {
     return CONFIG.supplementaryProducts.map(prod => {
         let optionsHtml = '';
@@ -1297,23 +1426,44 @@ function generateSupplementaryProductsHtml() {
               </div>    
               <div>
                 <label class="font-medium text-gray-700 block mb-1">Phạm vi địa lý</label>
-                <select class="form-select health-scl-scope"><option value="main_vn">Việt Nam</option><option value="main_global">Nước ngoài</option></select>
+                <select class="form-select health-scl-scope">
+                  <option value="main_vn">Việt Nam</option>
+                  <option value="main_global">Nước ngoài</option>
+                </select>
               </div>
             </div>
             <div>
               <span class="font-medium text-gray-700 block mb-2">Quyền lợi tùy chọn:</span>
               <div class="space-y-2">
-                <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" class="form-checkbox health-scl-outpatient"> <span>Điều trị ngoại trú</span></label>
-                <label class="flex items-center space-x-3 cursor-pointer"><input type="checkbox" class="form-checkbox health-scl-dental"> <span>Chăm sóc nha khoa</span></label>
+                <label class="flex items-center space-x-3 cursor-pointer">
+                  <input type="checkbox" class="form-checkbox health-scl-outpatient">
+                  <span>Điều trị ngoại trú</span>
+                  <span class="scl-outpatient-fee ml-2 text-xs text-gray-600"></span>
+                </label>
+                <label class="flex items-center space-x-3 cursor-pointer">
+                  <input type="checkbox" class="form-checkbox health-scl-dental">
+                  <span>Chăm sóc nha khoa</span>
+                  <span class="scl-dental-fee ml-2 text-xs text-gray-600"></span>
+                </label>
               </div>
             </div>`;
         } else {
-            optionsHtml = `<div><label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label><input type="text" class="form-input ${prod.id}-stbh" placeholder="${prod.id==='bhn'?'VD: 200.000.000':(prod.id==='accident'?'VD: 500.000.000':(prod.id==='hospital_support'?'Bội số 100.000 (đ/ngày)':'Nhập STBH'))}"></div><p class="hospital-support-validation text-sm text-gray-500 mt-1"></p>`;
+            optionsHtml = `<div>
+              <label class="font-medium text-gray-700 block mb-1">Số tiền bảo hiểm (STBH)</label>
+              <input type="text" class="form-input ${prod.id}-stbh" placeholder="${
+                prod.id==='bhn' ? 'VD: 200.000.000' :
+                (prod.id==='accident' ? 'VD: 500.000.000' :
+                  (prod.id==='hospital_support' ? 'Bội số 100.000 (đ/ngày)' : 'Nhập STBH')
+                )
+              }">
+            </div>
+            <p class="hospital-support-validation text-sm text-gray-500 mt-1"></p>`;
         }
         return `
         <div class="product-section ${prod.id}-section hidden">
           <label class="flex items-center space-x-3 cursor-pointer">
-            <input type="checkbox" class="form-checkbox ${prod.id}-checkbox"> <span class="text-lg font-medium text-gray-800">${prod.name}</span>
+            <input type="checkbox" class="form-checkbox ${prod.id}-checkbox">
+            <span class="text-lg font-medium text-gray-800">${prod.name}</span>
           </label>
           <div class="product-options hidden mt-3 pl-8 space-y-3 border-l-2 border-gray-200">
             ${optionsHtml}
@@ -1323,6 +1473,7 @@ function generateSupplementaryProductsHtml() {
         </div>`;
     }).join('');
 }
+
 
 function initOccupationAutocomplete(input, container) {
   if (!input) return;

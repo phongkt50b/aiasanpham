@@ -1910,13 +1910,34 @@ window.MDP3 = (function () {
             if(feeEl) feeEl.textContent = '';
             return 0;
         }
+        // === PATCH MDP3: loại phí mdp3 ra khỏi base & bỏ node 'mdp3_other' ===
         let stbhBase = 0;
+        const feesModel = (typeof appState !== 'undefined') ? appState.fees : null;
+        
         for (let pid in window.personFees) {
-            stbhBase += (window.personFees[pid].mainBase || 0) + (window.personFees[pid].supp || 0);
+          if (!Object.prototype.hasOwnProperty.call(window.personFees, pid)) continue;
+        
+          // Bỏ hẳn node tạo riêng cho "người khác"
+          if (pid === 'mdp3_other') continue;
+        
+          const pf = window.personFees[pid];
+          const suppDetails = feesModel?.byPerson?.[pid]?.suppDetails || {};
+          const mdp3Part = suppDetails.mdp3 || 0;          // phần phí mdp3 của người này (nếu có)
+          const suppNet = (pf.supp || 0) - mdp3Part;       // phần bổ sung thực (loại mdp3)
+        
+          stbhBase += (pf.mainBase || 0) + Math.max(0, suppNet);
         }
-        if (selectedId !== 'other' && window.personFees[selectedId]) {
-            stbhBase -= window.personFees[selectedId].supp || 0;
+        
+        // Nếu chọn miễn cho 1 người cụ thể (không phải "other") thì trừ riders của người đó (đÃ loại mdp3)
+        if (selectedId && selectedId !== 'other' && window.personFees[selectedId]) {
+          const suppDetails = feesModel?.byPerson?.[selectedId]?.suppDetails || {};
+          const mdp3Part = suppDetails.mdp3 || 0;
+          const suppNet = (window.personFees[selectedId].supp || 0) - mdp3Part;
+          stbhBase -= Math.max(0, suppNet);
         }
+        
+        if (stbhBase < 0) stbhBase = 0;
+
         let age, gender;
          if (selectedId === 'other') {
           const form = document.getElementById('person-container-mdp3-other');
@@ -2333,16 +2354,18 @@ function buildSummaryData() {
     const form = document.getElementById('person-container-mdp3-other');
     let ageOther = mainInfo.age;
     let nameOther = 'Người khác (Miễn đóng phí 3.0)';
+    let genderOther = 'Nam';  
     if (form) {
       const info = collectPersonData(form, false);
       if (info.age) ageOther = info.age;
       if (info.name) nameOther = info.name;
+      if (info.gender) genderOther = info.gender;
     }
     persons.push({
       id:'mdp3_other',
       isMain:false,
       name: nameOther,
-      gender:'Nam',
+      gender:genderOther,
       age: ageOther,
       supplements:{}
     });
@@ -2681,17 +2704,30 @@ function computePart1LifetimeData(summaryData) {
   const payYearsMain = Math.max(0, Math.min(paymentTerm, globalTimelineYears));
 
   // Chuẩn bị STBH base cho MDP3
-  let mdp3StbhBase = 0;
-  if (mdpEnabled) {
-    try {
-      for (let pid in window.personFees) {
-        mdp3StbhBase += (window.personFees[pid].mainBase || 0) + (window.personFees[pid].supp || 0);
-      }
-      if (mdpTargetId && mdpTargetId !== 'other' && window.personFees[mdpTargetId]) {
-        mdp3StbhBase -= (window.personFees[mdpTargetId].supp || 0);
-      }
-    } catch(e){}
-  }
+    // === PATCH MDP3 lifetime base ===
+    let mdp3StbhBase = 0;
+    if (mdpEnabled) {
+      try {
+        const feesModel = (typeof appState !== 'undefined') ? appState.fees : null;
+        for (let pid in window.personFees) {
+          if (!Object.prototype.hasOwnProperty.call(window.personFees, pid)) continue;
+          if (pid === 'mdp3_other') continue; // bỏ node chỉ chứa phí mdp3
+          const pf = window.personFees[pid];
+          const suppDetails = feesModel?.byPerson?.[pid]?.suppDetails || {};
+          const mdp3Part = suppDetails.mdp3 || 0;
+          const suppNet = (pf.supp || 0) - mdp3Part;
+          mdp3StbhBase += (pf.mainBase || 0) + Math.max(0, suppNet);
+        }
+        if (mdpTargetId && mdpTargetId !== 'other' && window.personFees[mdpTargetId]) {
+          const suppDetails = feesModel?.byPerson?.[mdpTargetId]?.suppDetails || {};
+          const mdp3Part = suppDetails.mdp3 || 0;
+          const suppNet = (window.personFees[mdpTargetId].supp || 0) - mdp3Part;
+          mdp3StbhBase -= Math.max(0, suppNet);
+        }
+        if (mdp3StbhBase < 0) mdp3StbhBase = 0;
+      } catch(e){}
+    }
+
   function calcMdp3PremiumIssue(age, gender) { // chỉ dùng tuổi phát hành
     if (!mdpEnabled || !mdp3StbhBase) return 0;
     const row = product_data.mdp3_rates.find(r => age >= r.ageMin && age <= r.ageMax);
